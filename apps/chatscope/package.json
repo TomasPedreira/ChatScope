@@ -1,0 +1,17 @@
+{
+  "name": "chatscope-tests",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Testes isolados da app Rust/Tauri ChatScope.",
+  "scripts": {
+    "test": "node tests/preview.mjs",
+    "test:native": "node tests/native.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "playwright": "^1.65.1"
+  }
+}

@@ -1,0 +1,17 @@
+# Local source media, exported videos and editing history.
+/media/
+/docs/organization/
+/AGENTS.md
+
+# Reproducible application output and isolated test profiles.
+**/target/
+**/node_modules/
+**/src-tauri/gen/
+**/dist/
+**/artifacts/
+**/__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+.env
+.env.*

@@ -1,0 +1,7 @@
+/media/
+**/node_modules/
+**/target/
+**/src-tauri/gen/
+**/dist/
+**/artifacts/
+**/__pycache__/

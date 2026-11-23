@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Local main window; all network and export operations run in Rust.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}
+

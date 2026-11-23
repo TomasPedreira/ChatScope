@@ -1,0 +1,23 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "ChatScope",
+  "version": "0.1.0",
+  "identifier": "pt.clipping.chatscope",
+  "build": { "frontendDist": "../ui" },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [{
+      "title": "ChatScope · Twitch Chat",
+      "width": 1280, "height": 860,
+      "minWidth": 900, "minHeight": 600,
+      "visible": false,
+      "theme": "Dark",
+      "backgroundColor": "#15171b"
+    }],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self'; connect-src ipc: http://ipc.localhost; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-src 'none'"
+    }
+  },
+  "bundle": { "active": false, "icon": ["icons/icon.ico"] }
+}
+
