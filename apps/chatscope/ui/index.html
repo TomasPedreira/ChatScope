@@ -3,32 +3,56 @@
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ChatScope</title><link rel="stylesheet" href="style.css"><script src="app.js" defer></script></head>
 <body>
   <header class="app-header">
-    <div class="app-title"><svg class="app-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v12h-8l-6 4V4Z"/><path d="M9 8h6M9 12h4"/></svg><strong>ChatScope</strong><span class="title-divider">/</span><span>Twitch chat</span></div>
-    <div class="app-context">Canal ao vivo <span class="context-divider">/</span> VOD <span class="context-divider">/</span> Clip</div>
+    <div class="app-title"><svg class="app-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v12h-8l-6 4V4Z"/><path d="M9 8h6M9 12h4"/></svg><strong>ChatScope</strong><span class="title-divider">/</span><span>Twitch + YouTube</span></div>
+    <div class="app-context">Chat Twitch <span class="context-divider">/</span> Vídeo YouTube</div>
   </header>
   <main>
-    <section class="capture-controls" aria-label="Origem do chat">
+    <section class="capture-controls" aria-label="Origem da análise">
       <form id="capture-form">
-        <label class="url-field"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 13 4-4m-6 7-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 1 1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0"/></svg><input id="url" aria-label="URL da Twitch" type="text" spellcheck="false" placeholder="https://www.twitch.tv/canal ou /videos/ID" autocomplete="off"></label>
+        <label class="url-field"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 13 4-4m-6 7-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 1 1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0"/></svg><input id="url" aria-label="URL da Twitch ou do YouTube" type="text" spellcheck="false" placeholder="URL da Twitch ou de um vídeo YouTube" autocomplete="off"></label>
         <button id="start" class="capture-button" type="submit"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m8 4 6 6-6 6"/></svg>Capturar</button>
         <button id="stop" class="stop-button hidden" type="button"><span>■</span>Parar</button>
       </form>
-      <div class="options-row"><div class="examples"><span>Testar com</span><button id="example-live" type="button">canal ao vivo</button><span class="dot-separator">/</span><button id="example-vod" type="button">VOD recente</button></div><div class="range"><label for="range-start">Intervalo VOD</label><input id="range-start" aria-label="Início do intervalo" placeholder="00:00:00"><span>—</span><input id="range-end" aria-label="Fim do intervalo" placeholder="até ao fim"></div></div>
+      <div class="options-row"><div class="examples"><span>Testar com</span><button id="example-live" type="button">canal ao vivo</button><span class="dot-separator">/</span><button id="example-vod" type="button">VOD recente</button><span class="dot-separator">/</span><button id="example-youtube" type="button">YouTube</button></div><div class="range"><label for="range-start">Intervalo do vídeo</label><input id="range-start" aria-label="Início do intervalo" placeholder="00:00:00"><span>—</span><input id="range-end" aria-label="Fim do intervalo" placeholder="até ao fim"></div></div>
+      <details class="clip-profile"><summary id="clip-profile-summary">Perfil do clip · 30 s</summary><div class="profile-fields">
+        <label>Duração pretendida <input id="clip-duration" type="number" min="5" max="180" step="1" value="30"> s</label>
+        <label>Antes do pico <input id="clip-before" type="number" min="0" max="180" step="1" value="20"> s</label>
+        <label>Máx. candidatos <input id="clip-count" type="number" min="1" max="30" step="1" value="8"></label>
+      </div><p>O restante tempo fica depois do pico. Nos limites, o intervalo desloca-se para preservar a duração. Se faltar vídeo, usa apenas o intervalo disponível.</p></details>
     </section>
     <div class="session-strip"><div id="notice" class="notice" role="status"><span class="status-dot"></span><span id="notice-text">Sem sessão. Introduz um URL para começar.</span></div><span id="mode-label" class="mode-label">Canal, VOD ou clip</span></div>
     <div id="source-meta" class="source-meta hidden"><div><strong id="source-name"></strong><span id="source-title"></span></div><span id="source-type" class="type-label"></span><span id="source-clock"></span></div>
     <div class="workspace">
-      <section class="chat-panel" aria-label="Mensagens do chat">
+      <section id="twitch-panel" class="chat-panel" aria-label="Mensagens do chat">
         <div class="pane-heading"><h1>Chat <span id="chat-pill" class="pill">PRONTO</span></h1><div class="chat-count"><span id="total">0</span> mensagens</div></div>
         <div class="chat-toolbar"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8" cy="8" r="5"/><path d="m12 12 5 5"/></svg><input id="search" type="search" aria-label="Filtrar mensagens" placeholder="Pesquisar em toda a sessão"><label><input id="only-reactions" type="checkbox">Só reações</label></div>
         <div id="moment-view" class="moment-view hidden"><span id="moment-label"></span><button id="clear-moment" type="button">Voltar ao chat <span aria-hidden="true">×</span></button></div>
-        <div id="chat-messages" class="chat-messages" aria-live="off"><div class="empty-state"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M9 10h30v22H22L9 40V10Z"/><path d="M17 18h14M17 24h9"/></svg><h2>Ainda sem mensagens</h2><p>Cola um URL da Twitch e inicia a captura.</p><div><kbd>Ctrl</kbd> + <kbd>Enter</kbd> para começar</div></div></div>
+        <div id="chat-messages" class="chat-messages" aria-live="off"><div class="empty-state"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M9 10h30v22H22L9 40V10Z"/><path d="M17 18h14M17 24h9"/></svg><h2>Encontra momentos a rever</h2><p>Cola um URL da Twitch para analisar o chat<br>ou um vídeo YouTube para procurar picos de repetição.</p><div><kbd>Ctrl</kbd> + <kbd>Enter</kbd> para começar</div></div></div>
         <div class="chat-footer"><span id="visible-count">Pré-visualização das últimas 400 mensagens</span><label><input id="autoscroll" type="checkbox" checked>Seguir chat</label></div>
+      </section>
+      <section id="youtube-panel" class="youtube-panel hidden" aria-label="Análise de vídeo YouTube">
+        <div class="pane-heading"><h1>Vídeo YouTube <span id="youtube-pill" class="pill">PRONTO</span></h1><span class="youtube-signal">Most replayed</span></div>
+        <div class="youtube-content">
+          <p id="youtube-description" class="youtube-description">A consultar os sinais públicos de repetição…</p>
+          <section id="youtube-timeline-section" class="hidden" aria-label="Timeline do heatmap">
+            <div class="section-heading"><h2>Onde as pessoas voltam a ver</h2><span>Intensidade relativa · 0–1</span></div>
+            <div id="youtube-timeline" class="youtube-timeline"></div>
+            <div class="chart-axis"><span id="youtube-start">00:00</span><span>Seleciona um segmento para rever</span><span id="youtube-end">00:00</span></div>
+          </section>
+          <section id="youtube-moment" class="youtube-moment hidden" aria-label="Momento selecionado">
+            <span class="eyebrow">INTERVALO PARA REVISÃO</span><h2 id="youtube-moment-range"></h2>
+            <p id="youtube-moment-reason"></p>
+            <button id="open-youtube" type="button">Abrir no YouTube a partir daqui ↗</button>
+            <p class="youtube-context">O intervalo inclui contexto antes do pico. Confirma no vídeo o início, a ação e o desfecho antes de escolher o corte.</p>
+          </section>
+          <p id="youtube-empty" class="youtube-empty hidden"></p>
+          <p class="youtube-explanation">O heatmap é um sinal relativo de repetição, sem contagens de cliques ou percentagens de espectadores. A disponibilidade depende do vídeo e pode mudar.</p>
+        </div>
       </section>
       <aside class="analysis-panel" aria-label="Análise do chat">
         <div class="pane-heading"><h2>Análise</h2><span id="session-duration"></span></div>
-        <dl class="metrics"><div><dd id="users">0</dd><dt>participantes</dt></div><div><dd id="reactions">0</dd><dt>reações</dt></div><div><dd id="highlight-count">0</dd><dt>momentos</dt></div></dl>
-        <section class="activity-section"><div class="section-heading"><h2>Atividade</h2><div class="chart-legend"><span></span>Mensagens <span></span>Reações</div></div><div id="chart" class="chart" aria-label="Histograma da atividade do chat"><div class="chart-empty">Sem dados</div></div><div class="chart-axis"><span id="chart-start">00:00</span><span id="chart-caption">10s / janela</span><span id="chart-end">00:00</span></div></section>
+        <dl class="metrics"><div><dd id="users">0</dd><dt id="users-label">participantes</dt></div><div><dd id="reactions">0</dd><dt id="reactions-label">reações</dt></div><div><dd id="highlight-count">0</dd><dt>momentos</dt></div></dl>
+        <section class="activity-section"><div class="section-heading"><h2 id="activity-title">Atividade</h2><div id="chart-legend" class="chart-legend"><span></span>Mensagens <span></span>Reações</div></div><div id="chart" class="chart" aria-label="Histograma da atividade do chat"><div class="chart-empty">Sem dados</div></div><div class="chart-axis"><span id="chart-start">00:00</span><span id="chart-caption">10s / janela</span><span id="chart-end">00:00</span></div></section>
         <section class="highlights-section"><div class="section-heading"><h2>Momentos a rever</h2><span class="heuristic">por atividade</span></div><p class="analysis-hint">Seleciona um intervalo para ver as mensagens.</p><div id="highlights"><div class="highlight-empty"><p>Os momentos aparecem quando há reações de vários participantes.</p></div></div></section>
         <div class="analysis-footnote">Deteção pelo chat. O conteúdo do vídeo precisa de revisão.</div>
       </aside>

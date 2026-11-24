@@ -10,6 +10,7 @@
 **/dist/
 **/artifacts/
 **/__pycache__/
+**/.venv-youtube/
 *.pyc
 .DS_Store
 Thumbs.db

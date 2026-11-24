@@ -18,18 +18,7 @@ const CLIENT_ID: &str = "kd1unb4b3q4t58fwlpcbzcbnm76a8fp";
 const COMMENTS_HASH: &str = "b70a3591ff0f4e0313d126c6a1502d79a1c02baebb288227c582044aa76adf6a";
 pub const MAX_MESSAGES: usize = 250_000;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Source {
-    pub url: String,
-    pub kind: String,
-    pub id: String,
-    pub channel: String,
-    pub title: String,
-    pub duration: Option<f64>,
-    pub start: f64,
-    pub end: Option<f64>,
-}
+pub use crate::scope::Source;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -667,6 +656,14 @@ async fn capture_vod<F: FnMut(Update) + Send>(
 }
 
 pub fn analyze(messages: &[ChatMessage]) -> Analysis {
+    analyze_internal(messages, true)
+}
+
+pub fn analyze_signals(messages: &[ChatMessage]) -> Analysis {
+    analyze_internal(messages, false)
+}
+
+fn analyze_internal(messages: &[ChatMessage], select_legacy_highlights: bool) -> Analysis {
     let mut analysis = Analysis::default();
     if messages.is_empty() {
         return analysis;
@@ -710,6 +707,7 @@ pub fn analyze(messages: &[ChatMessage]) -> Analysis {
     analysis
         .highlights
         .sort_by_key(|h| std::cmp::Reverse(h.score));
+    if select_legacy_highlights {
     let mut selected: Vec<Highlight> = Vec::new();
     for candidate in analysis.highlights.drain(..) {
         if selected
@@ -723,6 +721,7 @@ pub fn analyze(messages: &[ChatMessage]) -> Analysis {
         }
     }
     analysis.highlights = selected;
+    }
     // Keep the chart bounded even for very long VODs, including zero-activity gaps.
     if analysis.bins.len() > 80 {
         let size = analysis.bins.len().div_ceil(80);
@@ -739,7 +738,7 @@ pub fn analyze(messages: &[ChatMessage]) -> Analysis {
     analysis
 }
 
-fn csv_cell(value: &str) -> String {
+pub(crate) fn csv_cell(value: &str) -> String {
     let safe = if value.starts_with(['=', '+', '-', '@', '\t', '\r', '\n']) {
         format!("'{value}")
     } else {

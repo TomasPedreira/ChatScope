@@ -1,5 +1,67 @@
 # ChatScope
 
+## Vídeos YouTube
+
+Além do chat Twitch, a app aceita URLs `youtube.com/watch`, `youtu.be`,
+`youtube.com/shorts`, `youtube.com/embed` e `youtube.com/live` de vídeos já
+publicados/processados. Canais e playlists não são entradas de análise.
+
+Prepara a dependência isolada uma vez (Python 3.10+):
+
+```powershell
+.\Setup-YouTube.ps1
+```
+
+O lançador cria `.venv-youtube` nesta pasta e instala a versão fixada em
+`requirements-youtube.txt`. A app procura esse ambiente junto do projeto ou
+do executável e usa o Python do PATH como alternativa. O adapter é incorporado
+no executável; não é necessário distribuir o script Python separadamente.
+
+1. Cola o URL ou clica no exemplo **YouTube** e escolhe **Analisar YouTube**.
+2. Opcionalmente indica início/fim dentro da duração do vídeo.
+3. Consulta a timeline e os candidatos ordenados por intensidade relativa.
+4. Seleciona um candidato ou um segmento e usa **Abrir no YouTube** para rever
+   o vídeo no navegador a partir do início do intervalo.
+5. Exporta JSON (metadados, heatmap e candidatos) ou CSV (candidatos e links).
+
+Em **Perfil do clip**, escolhe a duração pretendida (5–180 s), o contexto antes
+do pico e o máximo de candidatos (1–30). O restante tempo fica depois do pico.
+O planeador desloca o intervalo nos limites do vídeo para manter a duração;
+se a origem ou região for mais curta, usa apenas o tempo disponível. O mesmo
+perfil aplica-se aos candidatos Twitch e é preservado no JSON. Estes valores
+definem propostas para revisão, sem iniciar renderização ou publicação.
+
+O adapter consulta apenas metadados públicos, sem descarregar vídeo ou usar
+cookies pessoais. O perfil inicial usa 30 s, com 20 s antes do pico, e oito
+candidatos no máximo. Os picos não interpretam a história do vídeo.
+Sem heatmap, a consulta termina normalmente e informa que o sinal está ausente;
+uma falha de rede, dependência ou extractor aparece como erro. Heatmaps planos
+podem não produzir candidatos. **Parar** cancela o subprocesso de extração.
+
+O gráfico não fornece contagens de cliques, percentagens de audiência nem uma
+probabilidade de qualidade. O YouTube não publica um prazo ou limiar de vistas
+garantido para o heatmap público. Vídeos recentes, com poucas vistas ou não
+elegíveis podem não o ter. A extração com yt-dlp depende de interfaces do site
+que podem mudar. [Regras de disponibilidade](https://support.google.com/youtube/answer/12825599?hl=en).
+
+```powershell
+# Prova de rede, sem download de vídeo
+.\.venv-youtube\Scripts\python.exe tests/probe_youtube.py
+# Interface, dados gravados e estados de ausência/erro/cancelamento
+node tests/youtube-preview.mjs
+# Integração nativa real numa janela oculta; requer dist/ChatScope.exe
+node tests/youtube-native.mjs
+# Mesmo motor pela CLI
+.\dist\ChatScope.exe --scope-youtube 'https://youtu.be/YE7VzlLtp-4' --output artifacts/youtube.json
+# Com perfil de corte
+.\dist\ChatScope.exe --scope-youtube 'https://youtu.be/YE7VzlLtp-4' --duration 60 --before-peak 40 --max-moments 3 --output artifacts/youtube-60s.json
+```
+
+O suporte atual termina na seleção/revisão e exportação de candidatos. A
+recolha `study/`, a edição automática e a fila de publicação mantêm o seu fluxo
+Twitch. A documentação da [arquitetura e prova](../../docs/youtube-scoper.md)
+explica os pontos de extensão.
+
 Aplicação desktop Windows em **Rust + Tauri 2**, criada a partir das tarefas
 «twitch chat» do workspace Clipping: acesso ao chat, recolha de sinais de momentos
 engraçados e processamento desses sinais.
@@ -48,8 +110,9 @@ em vez de depender de um identificador que pode expirar.
   `KEKW`, `OMEGALUL`, `LOL`, `LMAO`, `Pog`, risos escritos e 😂/🤣.
 - Um candidato exige pelo menos 4 mensagens, 2 reações e 3 participantes
   distintos na janela. O sinal combina proporção de reações, atividade face à
-  média da sessão e participantes distintos; o intervalo sugerido inclui os
-  10 segundos anteriores. Mostra até 8 candidatos sem sobreposição.
+  média da sessão e participantes distintos. Na interface, os intervalos usam
+  o perfil do clip e são selecionados sem sobreposição; o limite inicial é oito.
+  A CLI de captura de chat conserva a análise legada de oito momentos.
 - O valor de 0–100 exportado em JSON é um **score heurístico** usado para ordenar
   os momentos, sem interpretação probabilística. A interface mostra os horários
   e as contagens de reações/participantes em vez desse valor.

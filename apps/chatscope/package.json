@@ -4,8 +4,9 @@
   "private": true,
   "description": "Testes isolados da app Rust/Tauri ChatScope.",
   "scripts": {
-    "test": "node tests/preview.mjs",
-    "test:native": "node tests/native.mjs"
+    "test": "node tests/preview.mjs && node tests/youtube-preview.mjs",
+    "test:native": "node tests/native.mjs",
+    "test:youtube-native": "node tests/youtube-native.mjs"
   },
   "keywords": [],
   "author": "",

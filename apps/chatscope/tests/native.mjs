@@ -69,7 +69,7 @@ try {
   assert.equal((await page.evaluate(()=>window.__TAURI__.core.invoke('get_snapshot'))).elapsed,vod.elapsed,'Completed capture timer must stop');
   const fixture = JSON.parse(await readFile(path.join(root,'tests/fixtures/vod.json'),'utf8'));
   await page.locator('.highlight').first().click();
-  const moment = vod.analysis.highlights[0];
+  const moment = vod.moments?.[0] || vod.analysis.highlights[0];
   const expectedMoment = fixture.messages.filter(m=>m.offset>=moment.start && m.offset<moment.end);
   await page.waitForFunction(n=>document.querySelectorAll('.message').length===n,Math.min(400,expectedMoment.length));
   assert(await page.locator('#moment-view').isVisible());
