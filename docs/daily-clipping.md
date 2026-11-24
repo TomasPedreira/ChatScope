@@ -1,29 +1,38 @@
-# Rotina diária de clipping para revisão privada
+# Rotina diária de produção local de clips
 
-Instrução do utilizador: trabalhar todos os dias em que o PC e o ambiente local estiverem disponíveis, em dois blocos, 09:00–14:00 e 14:00–19:00, no fuso Europe/Lisbon. Usar apenas as streams e os vídeos indicados pelo utilizador para a data em questão. O limite operacional é dez novos uploads no conjunto do dia, somando as duas sessões. Este é um teto definido pelo utilizador, não uma afirmação sobre um limite universal do YouTube.
+Trabalhar todos os dias em que o PC e o ambiente local estiverem disponíveis, em dois blocos, 09:00–14:00 e 14:00–19:00, no fuso Europe/Lisbon. Usar apenas as streams e os vídeos indicados pelo utilizador para a data atual. O resultado por defeito é uma pasta local de MP4 para revisão humana. Esta versão substitui a autorização anterior de uploads privados diários.
 
-## Autorização e resultados
+## Entrega e autorização
 
-- A rotina está autorizada a analisar, selecionar, editar e carregar Shorts como privados no canal que o utilizador ligar e confirmar.
-- Nunca tornar vídeos públicos, agendar publicação pública, executar `shorts.py publicar` ou retomar uma publicação pública como parte desta rotina. Estas instruções substituem prompts antigos de publicação automática.
-- A decisão de tornar um clip público pertence ao utilizador, depois de rever os privados. Pedidos posteriores de publicação devem identificar os vídeos escolhidos.
-- A ausência de uma lista de fontes para o dia não autoriza usar listas de dias anteriores nem a rotação predefinida de canais. Uma recolha deve corresponder às fontes expressamente escolhidas.
-- Sem canal confirmado, OAuth ou um caminho de edição funcional, registar a dependência em falta. Não apresentar a rotina como tendo produzido ou carregado clips.
+- Analisar, selecionar e editar os clips, guardando os MP4 em `media/daily/YYYY-MM-DD/clips/TEMA/`.
+- Guardar `review.md` na pasta diária, com links para os ficheiros locais, título proposto, origem, duração e motivo de seleção.
+- O utilizador revê os ficheiros e pode fazer o upload manualmente ou pedir depois o upload de clips identificados.
+- Não iniciar uploads, mesmo privados, publicar ou agendar publicação automaticamente. Uma instrução posterior específica deve identificar os clips e o canal de destino e definir se ficam privados ou públicos.
+- A falta de canal YouTube ou OAuth NÃO bloqueia a produção nem a revisão local. A ligação aos canais fica para uma sessão posterior, conforme pedido pelo utilizador.
+- Não aplicar o antigo teto de dez uploads ao número de clips produzidos localmente. A produção depende da qualidade do material, do tempo e do espaço disponíveis.
+- Não usar o YouTube como arquivo para contornar limites: privado continua a ser um upload. Qualquer envio autorizado posteriormente deve respeitar os limites efetivos do canal e da API; não assumir dez como um limite universal da plataforma.
+- Não configurar autenticação, fazer push ou merge como parte da rotina.
 
-## Execução dos blocos
+## Fontes e execução
 
-As automações Codex retomam a mesma conversa de meia em meia hora durante 09:00–19:00. Cada ronda determina o bloco atual e respeita a respetiva hora de fim. Usar recolha em segundo plano quando disponível; evitar recolhas duplicadas. Às 14:00, terminar ou transferir o trabalho em curso para a segunda sessão sem duplicar uploads. Às 19:00, parar nova produção e preparar a revisão. Não recuperar horas perdidas fora destas janelas.
+As automações Codex retomam a mesma conversa de meia em meia hora durante os blocos. Cada ronda determina o bloco atual e respeita a respetiva hora de fim. Usar processos em segundo plano quando disponíveis, sem duplicar recolhas. Às 14:00 transferir o estado para a segunda sessão; às 19:00 parar novo trabalho e preparar a revisão. Não recuperar horas perdidas fora destas janelas.
 
-No início do dia, guardar as fontes que o utilizador fornecer em `media/daily/YYYY-MM-DD/sources.json`, incluindo URLs, intervalos pedidos e perfil de clip. Registar o fuso Europe/Lisbon. Se ainda não houver fontes ou estiverem ambíguas, pedir a informação em falta uma vez e aguardar. Os formatos de mensagem do chat podem ser convertidos para este manifesto; o utilizador não tem de escrever JSON.
+No início do dia, converter as fontes que o utilizador indicar no chat para `media/daily/YYYY-MM-DD/sources.json`, incluindo URLs, intervalos, temas e perfil de clip. Não reutilizar listas antigas nem a rotação Twitch predefinida. Sem fontes para a data atual, pedir a informação em falta uma vez e aguardar.
 
-Manter `media/daily/YYYY-MM-DD/state.json` com o progresso, bloqueios, candidatos, hashes dos ficheiros, uploads reservados/em curso e IDs YouTube concluídos. Atribuir uma data operacional local a cada upload. Contar as reservas e uploads iniciados para impedir ultrapassar dez mesmo com retomas. Retomar um upload existente pelo mesmo identificador, sem criar cópias. Não ultrapassar limites devolvidos pelo serviço; conservar o excedente como drafts locais.
+Manter `state.json` com progresso, bloqueios, candidatos, hashes e caminhos dos ficheiros. Preservar os originais, transcrições e tempos de corte quando necessários para rever ou reeditar. Não substituir nem apagar clips já preparados sem instrução. Não criar cópias duplicadas. Verificar o espaço disponível antes de iniciar capturas grandes.
 
-Os intervalos e o perfil de clip orientam as propostas; rever vídeo e áudio antes de os aceitar. Preservar contexto, ação e desfecho, ajustar enquadramento e legendas e evitar duplicados. A duração pretendida não justifica cortar uma frase ou ocultar o desfecho. Não inventar títulos, transcrições ou qualidade de fonte.
+Rever vídeo e áudio para preservar contexto, ação e desfecho. Ajustar enquadramento e legendas. Não inventar títulos, transcrições ou qualidade de fonte. Uma origem ainda sem aquisição/renderização funcional deve ser assinalada como bloqueada; isso não impede trabalhar noutras fontes autorizadas e suportadas.
 
-## Revisão diária
+## Revisão das 19:00
 
-Às 19:00 produzir `media/daily/YYYY-MM-DD/review.md`, com cada Short privado, título, origem, duração, motivo de seleção, link para o YouTube Studio e eventuais problemas. Incluir a contagem total de uploads e os drafts que ficaram locais. Se não houve produção, indicar a razão. A revisão é humana; nenhuma seleção automática autoriza publicação pública.
+Conferir os MP4 realmente existentes e apresentar a pasta diária e o índice `review.md`. Incluir clips prontos, trabalho em curso ou incompleto e bloqueios reais. A falta de YouTube não é um bloqueio da revisão local. Não apresentar candidatos/exports de metadados como se já fossem MP4 renderizados.
 
-## Estado atual de preparação
+## Vários canais
 
-A análise de chat Twitch, heatmaps YouTube e perfis de clip está implementada. Há scripts separados para edição e uploads privados, mas o canal ainda não está ligado nesta instalação e falta unificar a aquisição/renderização de candidatos provenientes das várias origens. Kick e YouTube Live não estão integrados nesta versão. Não executar a rotação Twitch fixa como substituto da lista diária do utilizador. A existência de uma automação agendada não elimina estas dependências.
+Uma conta Google pode gerir vários canais YouTube com identidades/temas distintos. A futura integração deve manter uma associação explícita entre tema e ID do canal, com confirmação do destino antes de cada envio. A configuração existente do uploader seleciona um canal de cada vez; a gestão de vários destinos ainda precisa de implementação. Não criar canais nem alterar OAuth nesta rotina.
+
+## Estado de preparação
+
+A análise de chat Twitch, heatmaps YouTube e perfis de clip está implementada. Há scripts separados para edição, mas falta unificar a aquisição/renderização de candidatos das várias origens. Kick e YouTube Live não estão integrados nesta versão. A existência de uma automação agendada não elimina estas dependências. Produção local não depende da ligação ao canal; depende das fontes e das ferramentas de captura/edição efetivamente suportadas.
+
+Referências: [uploads e publicação](https://support.google.com/youtube/answer/57407?hl=en), [limites superiores com funcionalidades avançadas](https://support.google.com/youtube/answer/9891124?hl=en), [vários canais na mesma conta Google](https://support.google.com/youtube/answer/3046356?hl=en).
