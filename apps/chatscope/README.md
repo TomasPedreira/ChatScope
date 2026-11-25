@@ -1,8 +1,7 @@
 # ChatScope
 
 Desktop Windows em Rust + Tauri 2 para encontrar momentos e criar MP4 locais
-de Twitch, YouTube (incluindo diretos) e ficheiros locais. A integração Kick
-fica na branch `kick_scoper`. [Arquitetura](../../docs/media-pipeline.md).
+de Twitch, YouTube (incluindo diretos) e ficheiros locais. Kick live, VODs e clips estão integrados na branch `kick_scoper`; executar `Setup-Kick.ps1`. [Arquitetura](../../docs/media-pipeline.md).
 
 ## Preparar e produzir clips
 

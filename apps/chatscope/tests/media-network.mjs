@@ -27,6 +27,8 @@ async function test(name,url,live=false){
   console.log(`${name}: ${document.source.kind}, ${clip.duration}s MP4, SHA-256 verified`);
   return {name,output,source:document.source,clip};
 }
-const checks=[await test('youtube-video','https://www.youtube.com/watch?v=YE7VzlLtp-4')];
-if(process.argv.includes('--live'))checks.push(await test('youtube-live','https://www.youtube.com/watch?v=ROboUHfPUrU',true));
+const custom=process.argv.indexOf('--url');
+const checks=custom>=0 ? [await test('custom-source',process.argv[custom+1],process.argv.includes('--live'))]
+  : [await test('youtube-video','https://www.youtube.com/watch?v=YE7VzlLtp-4')];
+if(custom<0&&process.argv.includes('--live'))checks.push(await test('youtube-live','https://www.youtube.com/watch?v=ROboUHfPUrU',true));
 await writeFile(path.join(artifacts,'media-network-checks.json'),JSON.stringify(checks,null,2));

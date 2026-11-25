@@ -76,6 +76,7 @@ fn runtime(root: &Path) -> Result<PathBuf, String> {
         ("__init__.py", include_str!("../../pipeline/__init__.py")),
         ("tools.py", include_str!("../../pipeline/tools.py")),
         ("providers.py", include_str!("../../pipeline/providers.py")),
+        ("kick.py", include_str!("../../pipeline/kick.py")),
         ("signals.py", include_str!("../../pipeline/signals.py")),
         ("render.py", include_str!("../../pipeline/render.py")),
         ("captions.py", include_str!("../../pipeline/captions.py")),

@@ -63,7 +63,7 @@ shell ou servidor HTTP interno. Não se leem cookies pessoais automaticamente.
 | Twitch, modo vídeo/áudio | Áudio do vídeo adquirido | Master local e render comum |
 | Twitch live, modo chat | Apenas chat | Para MP4 usar modo vídeo/áudio ou coletor avançado `study/` |
 | Ficheiro local | Áudio até 600 s; corte manual possível | Original preservado, render comum |
-| Kick | Integração na branch `kick_scoper` | Mesmos contratos e renderer |
+| Kick live / VOD / clip | Áudio do master, sem assumir chat/heatmap | Adapter kick_scoper; mesmo renderer e recuperação |
 
 Num direto, tempos são relativos ao master local, não ao início do broadcast.
 A captura termina após o bloco pedido; ainda não há buffer contínuo com rolling

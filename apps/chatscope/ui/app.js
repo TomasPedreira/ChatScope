@@ -20,7 +20,9 @@ function youtubeInput() {
   catch { return false; }
 }
 function updateStartLabel() {
-  $('start').textContent = youtubeInput() ? 'Analisar YouTube' : $('url').value.startsWith('file:') ? 'Analisar vídeo' : 'Capturar';
+  let kick = false;
+  try { kick = ['kick.com','www.kick.com'].includes(new URL($('url').value).hostname); } catch {}
+  $('start').textContent = kick ? 'Analisar Kick' : youtubeInput() ? 'Analisar YouTube' : $('url').value.startsWith('file:') ? 'Analisar vídeo' : 'Capturar';
 }
 function toast(message) {
   $('toast').textContent = message;
@@ -98,7 +100,7 @@ function renderYouTubeSelection() {
 function renderYouTube(data) {
   const analysis = data.video || data.youtube;
   const points = analysis?.points || analysis?.heatmap || [];
-  const audio = analysis?.signal === 'audio_energy';
+  const audio = analysis?.signal === 'audio_energy' || (!analysis && ['kick','local'].includes(data.provider));
   $('video-heading').textContent = data.provider === 'local' ? 'Vídeo local' : `Vídeo ${data.provider}`;
   $('video-signal').textContent = audio ? 'Energia do áudio' : 'Most replayed';
   $('timeline-heading').textContent = audio ? 'Variação da energia no áudio' : 'Onde as pessoas voltam a ver';
@@ -222,7 +224,7 @@ function render(data) {
     $('render-start').value = $('render-end').value = '';
   }
   snapshot = data;
-  const isYouTube = data.provider === 'youtube' || !!data.video;
+  const isYouTube = ['youtube','kick','local'].includes(data.provider) || !!data.video;
   const isAudio = data.video?.signal === 'audio_energy';
   $('twitch-panel').classList.toggle('hidden',isYouTube);
   $('youtube-panel').classList.toggle('hidden',!isYouTube);
@@ -233,7 +235,7 @@ function render(data) {
   document.querySelector('.heuristic').textContent = isAudio ? 'por áudio' : isYouTube ? 'por repetição' : 'por atividade';
   document.querySelector('.analysis-hint').textContent = isYouTube ? 'Seleciona um momento para rever no vídeo original.' : 'Seleciona um intervalo para ver as mensagens.';
   document.querySelector('.analysis-footnote').textContent = isAudio ? 'Energia do áudio. Música e ruído também podem criar picos: revê o vídeo.' : isYouTube ? 'Sinal público de repetição. Um pico precisa de revisão no vídeo.' : 'Deteção pelo chat. O conteúdo do vídeo precisa de revisão.';
-  $('export-note').textContent = isYouTube ? 'Exporta metadados, heatmap e candidatos da sessão' : 'Sessão em memória · exporta antes de fechar';
+  $('export-note').textContent = isAudio ? 'Exporta sinais de áudio e candidatos da sessão' : isYouTube ? 'Exporta metadados, heatmap e candidatos da sessão' : 'Sessão em memória · exporta antes de fechar';
   $('render-selection').disabled = !data.source || productionBusy;
   $('render-all').disabled = !data.moments?.length || productionBusy;
   const active = ['connecting', 'live', 'downloading', 'stopping'].includes(data.status);
@@ -255,12 +257,13 @@ function render(data) {
     $('source-title').textContent = data.source.title;
     $('source-title').title = data.source.title;
     $('source-type').textContent = data.source.kind.toUpperCase();
-    $('mode-label').textContent = isYouTube ? 'YouTube · tempo no vídeo' : data.source.kind === 'live' ? 'Ao vivo · tempo desde a captura' : 'Replay · tempo no VOD';
+    const platform = data.provider === 'local' ? 'Ficheiro local' : data.provider === 'kick' ? 'Kick' : 'YouTube';
+    $('mode-label').textContent = isYouTube ? `${platform} · ${data.video?.timeOrigin === 'recording' ? 'tempo na captura' : 'tempo no vídeo'}` : data.source.kind === 'live' ? 'Ao vivo · tempo desde a captura' : 'Replay · tempo no VOD';
     $('source-clock').textContent = data.source.kind === 'live' ? `Desde o início da captura · ${time(data.elapsed)}` : `${time(data.position)} / ${time(data.source.end ?? data.source.duration)}`;
     if (oldSource && oldSource !== data.source.url) {selectedRange = null; selectedYouTubeMoment = null;}
   } else {
     $('source-meta').classList.add('hidden');
-    $('mode-label').textContent = isYouTube ? 'YouTube · sinais públicos' : 'Canal, VOD ou clip';
+    $('mode-label').textContent = isYouTube ? 'A preparar sinais do vídeo' : 'Canal, VOD ou clip';
   }
   if (isYouTube) {renderYouTube(data); return;}
   renderMessages();
