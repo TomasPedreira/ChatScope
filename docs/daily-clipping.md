@@ -33,6 +33,8 @@ Uma conta Google pode gerir vários canais YouTube com identidades/temas distint
 
 ## Estado de preparação
 
-A análise de chat Twitch, heatmaps YouTube e perfis de clip está implementada. Há scripts separados para edição, mas falta unificar a aquisição/renderização de candidatos das várias origens. Kick e YouTube Live não estão integrados nesta versão. A existência de uma automação agendada não elimina estas dependências. Produção local não depende da ligação ao canal; depende das fontes e das ferramentas de captura/edição efetivamente suportadas.
+A análise de chat Twitch, heatmaps YouTube e perfis de clip está implementada. O pipeline comum cria MP4 no desktop e por --media-job, com rendering e estado persistente. YouTube Live usa capturas de 30–600 s com áudio como sinal; vídeos sem heatmap usam intervalos até dez minutos. Kick fica na branch kick_scoper. O coletor avançado study/ continua separado. A existência de uma automação agendada não elimina estas dependências. Produção local não depende da ligação ao canal; depende das fontes e das ferramentas de captura/edição efetivamente suportadas.
 
 Referências: [uploads e publicação](https://support.google.com/youtube/answer/57407?hl=en), [limites superiores com funcionalidades avançadas](https://support.google.com/youtube/answer/9891124?hl=en), [vários canais na mesma conta Google](https://support.google.com/youtube/answer/3046356?hl=en).
+
+Para execução, consultar [pipeline local](media-pipeline.md). A rotina deve usar --media-job, guardar o resultado JSON no estado diário e evitar repetir intervalos. clips-index.md é o índice automático de ficheiros; a revisão humana diária continua em review.md.

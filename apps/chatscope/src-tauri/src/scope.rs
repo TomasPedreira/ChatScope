@@ -46,6 +46,28 @@ pub struct Moment {
     pub reason: String,
 }
 
+/// Platform-neutral evidence plus the private local master needed for live cuts.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VideoAnalysis {
+    pub clip_profile: crate::clips::ClipProfile,
+    pub availability: String,
+    #[serde(default)]
+    pub heatmap: Vec<SignalPoint>,
+    #[serde(default)]
+    pub points: Vec<SignalPoint>,
+    #[serde(default)]
+    pub signal: String,
+    #[serde(default)]
+    pub time_origin: String,
+    pub moments: Vec<Moment>,
+    pub extractor_version: String,
+    #[serde(default, skip_serializing)]
+    pub local_media: Option<String>,
+    #[serde(default, skip_serializing)]
+    pub media_origin: f64,
+}
+
 pub fn youtube_url(id: &str, start: f64) -> String {
     format!(
         "https://www.youtube.com/watch?v={id}&t={}s",
@@ -66,7 +88,11 @@ pub fn export_moments_csv(source: &Source, moments: &[Moment]) -> String {
             format!("{:.6}", moment.strength),
             moment.signal.clone(),
             moment.reason.clone(),
-            youtube_url(&source.id, moment.start),
+            if source.kind == "youtube" {
+                youtube_url(&source.id, moment.start)
+            } else {
+                source.url.clone()
+            },
         ];
         output.push_str(
             &values

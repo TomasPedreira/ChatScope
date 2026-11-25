@@ -3,7 +3,6 @@ use crate::{
     chat,
     clips::ClipProfile,
     scope::{Input, Source},
-    youtube,
 };
 use serde::Serialize;
 use std::{
@@ -15,7 +14,7 @@ use url::Url;
 
 pub enum PreparedSource {
     Chat(Source),
-    Video(Source, youtube::Analysis),
+    Video(Source, crate::scope::VideoAnalysis),
 }
 type Preparation<'a> = Pin<Box<dyn Future<Output = Result<PreparedSource, String>> + Send + 'a>>;
 
@@ -26,6 +25,13 @@ pub struct Capabilities {
     pub live_chat: bool,
     pub replay_chat: bool,
     pub replay_heatmap: bool,
+    pub media_capture: bool,
+}
+
+#[derive(Clone, Copy)]
+pub struct CaptureOptions {
+    pub video_mode: bool,
+    pub capture_seconds: u32,
 }
 
 pub trait SourceProvider: Send + Sync {
@@ -39,6 +45,7 @@ pub trait SourceProvider: Send + Sync {
         start: Option<f64>,
         end: Option<f64>,
         profile: &'a ClipProfile,
+        options: CaptureOptions,
         cancel: Arc<AtomicBool>,
     ) -> Preparation<'a>;
 }
@@ -67,6 +74,7 @@ impl SourceProvider for TwitchProvider {
             live_chat: true,
             replay_chat: true,
             replay_heatmap: false,
+            media_capture: true,
         }
     }
     fn prepare<'a>(
@@ -75,9 +83,25 @@ impl SourceProvider for TwitchProvider {
         start: Option<f64>,
         end: Option<f64>,
         _profile: &'a ClipProfile,
-        _cancel: Arc<AtomicBool>,
+        options: CaptureOptions,
+        cancel: Arc<AtomicBool>,
     ) -> Preparation<'a> {
-        Box::pin(async move { Ok(PreparedSource::Chat(chat::resolve(url, start, end).await?)) })
+        Box::pin(async move {
+            if options.video_mode {
+                let (source, analysis) = crate::media::analyze(
+                    url,
+                    start,
+                    end,
+                    _profile,
+                    options.capture_seconds,
+                    cancel,
+                )
+                .await?;
+                Ok(PreparedSource::Video(source, analysis))
+            } else {
+                Ok(PreparedSource::Chat(chat::resolve(url, start, end).await?))
+            }
+        })
     }
 }
 
@@ -135,6 +159,7 @@ impl SourceProvider for YouTubeProvider {
             live_chat: false,
             replay_chat: false,
             replay_heatmap: true,
+            media_capture: true,
         }
     }
     fn prepare<'a>(
@@ -143,11 +168,57 @@ impl SourceProvider for YouTubeProvider {
         start: Option<f64>,
         end: Option<f64>,
         profile: &'a ClipProfile,
+        options: CaptureOptions,
         cancel: Arc<AtomicBool>,
     ) -> Preparation<'a> {
         Box::pin(async move {
-            let info = youtube::extract(url, cancel).await?;
-            let (source, analysis) = youtube::analyze_with_profile(info, start, end, profile)?;
+            let (source, analysis) =
+                crate::media::analyze(url, start, end, profile, options.capture_seconds, cancel)
+                    .await?;
+            Ok(PreparedSource::Video(source, analysis))
+        })
+    }
+}
+
+pub struct LocalProvider;
+impl SourceProvider for LocalProvider {
+    fn id(&self) -> &'static str {
+        "local"
+    }
+    fn accepts(&self, host: &str) -> bool {
+        host.is_empty() || host == "localhost"
+    }
+    fn normalize(&self, _input: &str, url: &Url) -> Result<Input, String> {
+        if url.scheme() != "file" || url.to_file_path().ok().is_none_or(|p| !p.is_file()) {
+            return Err("Escolhe um ficheiro de vídeo local existente.".into());
+        }
+        Ok(Input {
+            provider: self.id(),
+            url: url.to_string(),
+        })
+    }
+    fn capabilities(&self) -> Capabilities {
+        Capabilities {
+            provider: self.id(),
+            live_chat: false,
+            replay_chat: false,
+            replay_heatmap: false,
+            media_capture: true,
+        }
+    }
+    fn prepare<'a>(
+        &'a self,
+        url: &'a str,
+        start: Option<f64>,
+        end: Option<f64>,
+        profile: &'a ClipProfile,
+        options: CaptureOptions,
+        cancel: Arc<AtomicBool>,
+    ) -> Preparation<'a> {
+        Box::pin(async move {
+            let (source, analysis) =
+                crate::media::analyze(url, start, end, profile, options.capture_seconds, cancel)
+                    .await?;
             Ok(PreparedSource::Video(source, analysis))
         })
     }
@@ -164,7 +235,7 @@ mod tests {
     fn registry_reports_only_implemented_acquisition_modes() {
         let registry = ProviderRegistry::default();
         let capabilities = registry.capabilities();
-        assert_eq!(capabilities.len(), 2);
+        assert_eq!(capabilities.len(), 3);
         assert!(
             capabilities
                 .iter()
@@ -184,7 +255,11 @@ mod tests {
 impl Default for ProviderRegistry {
     fn default() -> Self {
         Self {
-            providers: vec![Box::new(TwitchProvider), Box::new(YouTubeProvider)],
+            providers: vec![
+                Box::new(TwitchProvider),
+                Box::new(YouTubeProvider),
+                Box::new(LocalProvider),
+            ],
         }
     }
 }
@@ -209,6 +284,7 @@ impl ProviderRegistry {
         start: Option<f64>,
         end: Option<f64>,
         profile: &ClipProfile,
+        options: CaptureOptions,
         cancel: Arc<AtomicBool>,
     ) -> Result<PreparedSource, String> {
         let provider = self
@@ -217,6 +293,8 @@ impl ProviderRegistry {
             .find(|provider| provider.id() == input.provider())
             .ok_or("Adapter indisponível.")?;
         let url = input.url.as_str();
-        provider.prepare(url, start, end, profile, cancel).await
+        provider
+            .prepare(url, start, end, profile, options, cancel)
+            .await
     }
 }

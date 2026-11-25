@@ -1,70 +1,35 @@
 # ChatScope
 
-## Vídeos YouTube
+Desktop Windows em Rust + Tauri 2 para encontrar momentos e criar MP4 locais
+de Twitch, YouTube (incluindo diretos) e ficheiros locais. A integração Kick
+fica na branch `kick_scoper`. [Arquitetura](../../docs/media-pipeline.md).
 
-Além do chat Twitch, a app aceita URLs `youtube.com/watch`, `youtu.be`,
-`youtube.com/shorts`, `youtube.com/embed` e `youtube.com/live` de vídeos já
-publicados/processados. Canais e playlists não são entradas de análise.
+## Preparar e produzir clips
 
-Prepara a dependência isolada uma vez (Python 3.10+):
+Executa `Setup-Media.ps1` nesta pasta uma vez (Python 3.10+). Reutiliza
+`.venv-youtube`, instala yt-dlp/EJS, FFmpeg e tzdata. Node no PATH é usado
+para JavaScript do YouTube. Para legendas: `Setup-Media.ps1 -Captions`.
 
-```powershell
-.\Setup-YouTube.ps1
-```
+1. Cola um URL ou escolhe vídeo local em **Perfil do clip**.
+2. Define duração, contexto e máximo de candidatos. Sem heatmap, escolhe um
+   intervalo até dez minutos. Em diretos, deixa início/fim vazios e define
+   a captura (30–600 s). Para vídeo de Twitch live, ativa o modo vídeo/áudio.
+3. Analisa o heatmap ou áudio; Twitch em modo chat mantém as reações de público.
+4. Seleciona um momento e ajusta o corte, formato, enquadramento, tema e legendas.
+5. Escolhe **Criar este MP4** ou **Criar todos os sugeridos**.
+6. Revê os ficheiros em `media/daily/YYYY-MM-DD/clips/TEMA/` e `clips-index.md`.
 
-O lançador cria `.venv-youtube` nesta pasta e instala a versão fixada em
-`requirements-youtube.txt`. A app procura esse ambiente junto do projeto ou
-do executável e usa o Python do PATH como alternativa. O adapter é incorporado
-no executável; não é necessário distribuir o script Python separadamente.
+A produção guarda progresso, masters, perfis e hashes. Pode ser cancelada;
+**Retomar incompletos** preserva os MP4 prontos. Fechar a app termina os processos
+filhos e permite retomar no arranque seguinte. Nada é publicado automaticamente.
 
-1. Cola o URL ou clica no exemplo **YouTube** e escolhe **Analisar YouTube**.
-2. Opcionalmente indica início/fim dentro da duração do vídeo.
-3. Consulta a timeline e os candidatos ordenados por intensidade relativa.
-4. Seleciona um candidato ou um segmento e usa **Abrir no YouTube** para rever
-   o vídeo no navegador a partir do início do intervalo.
-5. Exporta JSON (metadados, heatmap e candidatos) ou CSV (candidatos e links).
+Os tempos de diretos referem-se à gravação local. A captura termina após o bloco
+escolhido; ainda não há buffer contínuo. Volume/repetição são sugestões heurísticas,
+sem compreensão semântica da história. Confirmar vídeo e áudio antes de publicar.
 
-Em **Perfil do clip**, escolhe a duração pretendida (5–180 s), o contexto antes
-do pico e o máximo de candidatos (1–30). O restante tempo fica depois do pico.
-O planeador desloca o intervalo nos limites do vídeo para manter a duração;
-se a origem ou região for mais curta, usa apenas o tempo disponível. O mesmo
-perfil aplica-se aos candidatos Twitch e é preservado no JSON. Estes valores
-definem propostas para revisão, sem iniciar renderização ou publicação.
-
-O adapter consulta apenas metadados públicos, sem descarregar vídeo ou usar
-cookies pessoais. O perfil inicial usa 30 s, com 20 s antes do pico, e oito
-candidatos no máximo. Os picos não interpretam a história do vídeo.
-Sem heatmap, a consulta termina normalmente e informa que o sinal está ausente;
-uma falha de rede, dependência ou extractor aparece como erro. Heatmaps planos
-podem não produzir candidatos. **Parar** cancela o subprocesso de extração.
-
-O gráfico não fornece contagens de cliques, percentagens de audiência nem uma
-probabilidade de qualidade. O YouTube não publica um prazo ou limiar de vistas
-garantido para o heatmap público. Vídeos recentes, com poucas vistas ou não
-elegíveis podem não o ter. A extração com yt-dlp depende de interfaces do site
-que podem mudar. [Regras de disponibilidade](https://support.google.com/youtube/answer/12825599?hl=en).
-
-```powershell
-# Prova de rede, sem download de vídeo
-.\.venv-youtube\Scripts\python.exe tests/probe_youtube.py
-# Interface, dados gravados e estados de ausência/erro/cancelamento
-node tests/youtube-preview.mjs
-# Integração nativa real numa janela oculta; requer dist/ChatScope.exe
-node tests/youtube-native.mjs
-# Mesmo motor pela CLI
-.\dist\ChatScope.exe --scope-youtube 'https://youtu.be/YE7VzlLtp-4' --output artifacts/youtube.json
-# Com perfil de corte
-.\dist\ChatScope.exe --scope-youtube 'https://youtu.be/YE7VzlLtp-4' --duration 60 --before-peak 40 --max-moments 3 --output artifacts/youtube-60s.json
-```
-
-O suporte atual termina na seleção/revisão e exportação de candidatos. A
-recolha `study/`, a edição automática e a fila de publicação mantêm o seu fluxo
-Twitch. A documentação da [arquitetura e prova](../../docs/youtube-scoper.md)
-explica os pontos de extensão.
-
-Aplicação desktop Windows em **Rust + Tauri 2**, criada a partir das tarefas
-«twitch chat» do workspace Clipping: acesso ao chat, recolha de sinais de momentos
-engraçados e processamento desses sinais.
+`ChatScope.exe --media-job pedido.json` usa o mesmo pipeline; formato e exemplos
+em [media-pipeline.md](../../docs/media-pipeline.md). A CLI de análise
+`--scope-youtube` permanece disponível.
 
 ## Abrir
 

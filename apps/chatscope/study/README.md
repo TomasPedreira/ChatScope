@@ -26,17 +26,13 @@ Na raiz do workspace:
 .\apps\chatscope\study\Start-Estudo.ps1 -Stop
 ```
 
-## Retoma automática
+## Rotina diária
 
-O Agendador de Tarefas do Windows chama a conversa de Clipping a cada 30 minutos, das 08:00 às 22:00, hora de Lisboa. A tarefa usa a sessão Windows iniciada e verifica se a conversa já tem uma mensagem em fila antes de enviar outra. Cada ronda revê material novo, verifica se é preciso retomar a recolha e pode consultar os VODs quando faltam diretos. A publicação continua sujeita ao intervalo da fila de Shorts.
-
-```powershell
-.\apps\chatscope\study\Start-Rotina.ps1
-.\apps\chatscope\study\Start-Rotina.ps1 -Status
-.\apps\chatscope\study\Start-Rotina.ps1 -Stop
-```
-
-A instalação usa a conversa atual do Codex. A paragem desativa os próximos pedidos automáticos. Para parar uma recolha em curso, usa também `Start-Estudo.ps1 -Stop`.
+A rotina atual é local-first e usa as automações Codex de 09:00–14:00 e
+14:00–19:00. Não instalar Start-Rotina.ps1: esse lançador é legado e contém
+um fluxo antigo de publicação. As fontes diárias são apenas as indicadas pelo
+utilizador; a rotação abaixo pertence ao estudo histórico, não à rotina diária.
+Consultar docs/daily-clipping.md e docs/media-pipeline.md na raiz do projeto.
 
 ## Amostra
 

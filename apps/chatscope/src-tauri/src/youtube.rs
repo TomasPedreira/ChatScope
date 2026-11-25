@@ -1,25 +1,20 @@
 //! Public replay signals are optional. Missing data is not a network/extractor failure.
+#[cfg(test)]
+use crate::scope::Source;
+#[cfg(test)]
 use crate::{
-    chat::Source,
     clips::{ClipProfile, TimeRange},
     detectors::{HeatmapDetector, MomentDetector},
-    scope::Moment,
 };
-use serde::{Deserialize, Serialize};
-use std::{
-    path::PathBuf,
-    process::Stdio,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
-    time::Duration,
-};
+#[cfg(test)]
+use serde::Deserialize;
 
+#[cfg(test)]
 pub use crate::scope::SignalPoint as HeatPoint;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg(test)]
 pub struct VideoInfo {
     id: String,
     title: String,
@@ -30,20 +25,16 @@ pub struct VideoInfo {
     extractor_version: String,
 }
 
-#[derive(Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Analysis {
-    pub clip_profile: ClipProfile,
-    pub availability: String,
-    pub heatmap: Vec<HeatPoint>,
-    pub moments: Vec<Moment>,
-    pub extractor_version: String,
-}
+pub use crate::scope::VideoAnalysis as Analysis;
 
-pub fn export_document(source: &Source, analysis: &Analysis, status: &str) -> serde_json::Value {
+pub fn export_document(
+    source: &crate::scope::Source,
+    analysis: &Analysis,
+    status: &str,
+) -> serde_json::Value {
     serde_json::json!({"schemaVersion":2,"provider":"youtube",
         "exportedAt":chrono::Utc::now().to_rfc3339(),"status":status,"source":source,
-        "signal":"youtube_heatmap","availability":analysis.availability,"clipProfile":analysis.clip_profile,
+        "signal":analysis.signal,"points":analysis.points,"timeOrigin":analysis.time_origin,"availability":analysis.availability,"clipProfile":analysis.clip_profile,
         "extractorVersion":analysis.extractor_version,"heatmap":analysis.heatmap,"moments":analysis.moments})
 }
 
@@ -56,6 +47,7 @@ pub fn analyze(
     analyze_with_profile(info, start, end, &ClipProfile::default())
 }
 
+#[cfg(test)]
 pub fn analyze_with_profile(
     info: VideoInfo,
     start: Option<f64>,
@@ -120,6 +112,11 @@ pub fn analyze_with_profile(
     Ok((
         source,
         Analysis {
+            points: heatmap.clone(),
+            signal: "youtube_heatmap".into(),
+            time_origin: "source".into(),
+            local_media: None,
+            media_origin: 0.0,
             clip_profile: profile.clone(),
             availability: if available {
                 "available"
@@ -132,78 +129,6 @@ pub fn analyze_with_profile(
             extractor_version: info.extractor_version,
         },
     ))
-}
-
-fn python_command() -> PathBuf {
-    let mut roots = vec![];
-    if let Ok(executable) = std::env::current_exe() {
-        if let Some(parent) = executable.parent() {
-            roots.push(parent.to_path_buf());
-            if let Some(parent) = parent.parent() {
-                roots.push(parent.to_path_buf());
-            }
-        }
-    }
-    roots.push(
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .unwrap()
-            .to_path_buf(),
-    );
-    for root in roots {
-        let candidate = root.join(".venv-youtube").join(if cfg!(windows) {
-            "Scripts/python.exe"
-        } else {
-            "bin/python"
-        });
-        if candidate.is_file() {
-            return candidate;
-        }
-    }
-    PathBuf::from(if cfg!(windows) {
-        "python.exe"
-    } else {
-        "python3"
-    })
-}
-
-pub async fn extract(url: &str, cancel: Arc<AtomicBool>) -> Result<VideoInfo, String> {
-    let mut command = tokio::process::Command::new(python_command());
-    command
-        .args([
-            "-I",
-            "-X",
-            "utf8",
-            "-u",
-            "-c",
-            include_str!("../../providers/youtube.py"),
-            url,
-        ])
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .kill_on_drop(true);
-    #[cfg(windows)]
-    command.creation_flags(0x08000000);
-    let child = command.spawn().map_err(|_| "Não foi possível iniciar o suporte YouTube. Executa Setup-YouTube.ps1 na pasta apps/chatscope.")?;
-    let output = tokio::select! {
-        result = tokio::time::timeout(Duration::from_secs(50), child.wait_with_output()) => {
-            result.map_err(|_| "O YouTube não respondeu a tempo. Volta a tentar.")?
-                .map_err(|_| "Falhou o processo de análise do YouTube.")?
-        },
-        _ = async { while !cancel.load(Ordering::Relaxed) { tokio::time::sleep(Duration::from_millis(100)).await; } } => {
-            return Err("Análise cancelada.".into());
-        }
-    };
-    if !output.status.success() {
-        let error = String::from_utf8_lossy(&output.stderr);
-        return Err(format!(
-            "YouTube: {}",
-            error.chars().take(1200).collect::<String>().trim()
-        ));
-    }
-    serde_json::from_slice(&output.stdout)
-        .map_err(|_| "O extractor YouTube devolveu dados inválidos.".into())
 }
 
 #[cfg(test)]

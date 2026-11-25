@@ -708,19 +708,19 @@ fn analyze_internal(messages: &[ChatMessage], select_legacy_highlights: bool) ->
         .highlights
         .sort_by_key(|h| std::cmp::Reverse(h.score));
     if select_legacy_highlights {
-    let mut selected: Vec<Highlight> = Vec::new();
-    for candidate in analysis.highlights.drain(..) {
-        if selected
-            .iter()
-            .all(|h| candidate.end <= h.start || candidate.start >= h.end)
-        {
-            selected.push(candidate);
+        let mut selected: Vec<Highlight> = Vec::new();
+        for candidate in analysis.highlights.drain(..) {
+            if selected
+                .iter()
+                .all(|h| candidate.end <= h.start || candidate.start >= h.end)
+            {
+                selected.push(candidate);
+            }
+            if selected.len() == 8 {
+                break;
+            }
         }
-        if selected.len() == 8 {
-            break;
-        }
-    }
-    analysis.highlights = selected;
+        analysis.highlights = selected;
     }
     // Keep the chart bounded even for very long VODs, including zero-activity gaps.
     if analysis.bins.len() > 80 {

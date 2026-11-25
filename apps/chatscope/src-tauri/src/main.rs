@@ -4,6 +4,7 @@ mod clips;
 mod detectors;
 mod providers;
 use detectors::MomentDetector;
+mod media;
 mod scope;
 mod youtube;
 
@@ -23,6 +24,7 @@ struct Session {
     clip_profile: clips::ClipProfile,
     provider: String,
     youtube: Option<youtube::Analysis>,
+    video: Option<scope::VideoAnalysis>,
     generation: u64,
     source: Option<Source>,
     messages: Vec<ChatMessage>,
@@ -38,7 +40,7 @@ struct Session {
 
 impl Session {
     fn moments(&self) -> Vec<scope::Moment> {
-        if let Some(analysis) = &self.youtube {
+        if let Some(analysis) = &self.video {
             return analysis.moments.clone();
         }
         let Some(source) = &self.source else {
@@ -69,6 +71,7 @@ struct Snapshot {
     clip_profile: clips::ClipProfile,
     provider: String,
     youtube: Option<youtube::Analysis>,
+    video: Option<scope::VideoAnalysis>,
     moments: Vec<scope::Moment>,
     can_export: bool,
     source: Option<Source>,
@@ -98,11 +101,21 @@ fn start_capture(
     start: Option<String>,
     end: Option<String>,
     clip_profile: Option<clips::ClipProfile>,
+    video_mode: Option<bool>,
+    capture_seconds: Option<u32>,
     state: State<'_, Shared>,
 ) -> Result<(), String> {
     let input = scope::parse_input(&url)?;
     let clip_profile = clip_profile.unwrap_or_default();
     clip_profile.validate()?;
+    let capture_seconds = capture_seconds.unwrap_or(120);
+    if !(30..=600).contains(&capture_seconds) {
+        return Err("A captura de um direto deve durar entre 30 e 600 segundos.".into());
+    }
+    let options = providers::CaptureOptions {
+        video_mode: video_mode.unwrap_or(false),
+        capture_seconds,
+    };
     let parse_optional = |s: Option<String>| {
         s.filter(|s| !s.trim().is_empty())
             .map(|s| chat::parse_time(&s))
@@ -132,7 +145,7 @@ fn start_capture(
             detail: if input.provider() == "youtube" {
                 "A consultar o vídeo e o heatmap no YouTube…"
             } else {
-                "A validar o URL na Twitch…"
+                "A preparar a origem e os sinais disponíveis…"
             }
             .into(),
             started: Some(Instant::now()),
@@ -143,7 +156,7 @@ fn start_capture(
     tauri::async_runtime::spawn(async move {
         let result = async {
             let prepared = providers::ProviderRegistry::default()
-                .prepare(&input, start, end, &clip_profile, cancel.clone())
+                .prepare(&input, start, end, &clip_profile, options, cancel.clone())
                 .await?;
             let source = match prepared {
                 providers::PreparedSource::Video(source, analysis) => {
@@ -154,7 +167,10 @@ fn start_capture(
                         if session.generation == generation {
                             session.position = source.end.unwrap_or(0.0);
                             session.source = Some(source);
-                            session.youtube = Some(analysis);
+                            if input.provider() == "youtube" {
+                                session.youtube = Some(analysis.clone());
+                            }
+                            session.video = Some(analysis);
                         }
                     }
                     return Ok(());
@@ -209,13 +225,18 @@ fn start_capture(
                         "complete"
                     }
                     .into();
-                    session.detail = if let Some(analysis) = &session.youtube {
+                    session.detail = if let Some(analysis) = &session.video {
+                        if analysis.signal == "audio_energy" {
+                            if analysis.moments.is_empty() { "Áudio analisado · sem picos distintos; podes definir um corte manual" }
+                            else { "Análise de áudio concluída · momentos prontos para criar MP4 locais" }
+                        } else {
                         if analysis.availability == "unavailable" {
                             "Vídeo consultado · o YouTube não disponibilizou um heatmap público"
                         } else if analysis.moments.is_empty() {
                             "Heatmap recebido · sem picos distintos no intervalo escolhido"
                         } else {
                             "Análise concluída · momentos prontos para rever e exportar"
+                        }
                         }
                     } else if session.messages.is_empty() {
                         "Sessão terminada · nenhuma mensagem no intervalo"
@@ -245,7 +266,7 @@ fn stop_capture(state: State<'_, Shared>) -> Result<(), String> {
     ) {
         session.cancel.store(true, Ordering::Relaxed);
         session.status = "stopping".into();
-        session.detail = "A terminar e preservar as mensagens…".into();
+        session.detail = "A terminar e preservar os resultados disponíveis…".into();
     }
     Ok(())
 }
@@ -285,8 +306,9 @@ fn get_snapshot(
         clip_profile: session.clip_profile.clone(),
         provider: session.provider.clone(),
         youtube: session.youtube.clone(),
+        video: session.video.clone(),
         moments: session.moments(),
-        can_export: session.youtube.is_some() || !session.messages.is_empty(),
+        can_export: session.video.is_some() || !session.messages.is_empty(),
         source: session.source.clone(),
         status: session.status.clone(),
         detail: session.detail.clone(),
@@ -324,14 +346,14 @@ async fn export_chat(format: String, state: State<'_, Shared>) -> Result<Option<
     // Snapshot before the dialog: capture may continue while the user chooses a file.
     let (source, messages, status, youtube, clip_profile, moments) = {
         let session = state.lock().map_err(|_| "Sessão indisponível.")?;
-        if session.messages.is_empty() && session.youtube.is_none() {
+        if session.messages.is_empty() && session.video.is_none() {
             return Err("Ainda não há dados para exportar.".into());
         }
         (
             session.source.clone(),
             session.messages.clone(),
             session.status.clone(),
-            session.youtube.clone(),
+            session.video.clone(),
             session.clip_profile.clone(),
             session.moments(),
         )
@@ -356,7 +378,7 @@ async fn export_chat(format: String, state: State<'_, Shared>) -> Result<Option<
         if format == "csv" {
             scope::export_moments_csv(&source, &analysis.moments).into_bytes()
         } else {
-            serde_json::to_vec_pretty(&youtube::export_document(&source, &analysis, &status))
+            serde_json::to_vec_pretty(&serde_json::json!({"schemaVersion":3,"status":status,"source":source,"video":analysis,"clipProfile":clip_profile,"moments":moments}))
                 .map_err(|error| error.to_string())?
         }
     } else if format == "csv" {
@@ -401,8 +423,293 @@ fn open_youtube_moment(start: f64, state: State<'_, Shared>) -> Result<(), Strin
     Ok(())
 }
 
+#[tauri::command]
+fn create_clips(
+    start: Option<String>,
+    end: Option<String>,
+    all: Option<bool>,
+    render_profile: Option<media::RenderProfile>,
+    topic: Option<String>,
+    state: State<'_, Shared>,
+    production: State<'_, media::SharedProduction>,
+) -> Result<(), String> {
+    let request = {
+        let session = state.lock().map_err(|_| "Sessão indisponível.")?;
+        let source = session
+            .source
+            .as_ref()
+            .ok_or("Analisa primeiro uma origem.")?;
+        let moments = if all.unwrap_or(false) {
+            session.moments()
+        } else {
+            let start = chat::parse_time(&start.ok_or("Seleciona o início do corte.")?)?;
+            let end = chat::parse_time(&end.ok_or("Seleciona o fim do corte.")?)?;
+            let suggested = session.moments().into_iter().find(|moment| {
+                (moment.start - start).abs() < 0.001 && (moment.end - end).abs() < 0.001
+            });
+            vec![suggested.unwrap_or(scope::Moment {
+                start,
+                end,
+                peak: (start + end) / 2.0,
+                strength: 0.0,
+                signal: "manual".into(),
+                reason: "Intervalo escolhido para revisão".into(),
+            })]
+        };
+        media::request(
+            source,
+            session.video.as_ref(),
+            moments,
+            &session.clip_profile,
+            render_profile.unwrap_or_default(),
+            &topic.unwrap_or_else(|| "geral".into()),
+        )?
+    };
+    media::start(production.inner().clone(), request)
+}
+
+#[tauri::command]
+fn get_production(
+    production: State<'_, media::SharedProduction>,
+) -> Result<serde_json::Value, String> {
+    Ok(production
+        .lock()
+        .map_err(|_| "Produção indisponível.")?
+        .snapshot())
+}
+
+#[tauri::command]
+fn cancel_production(production: State<'_, media::SharedProduction>) -> Result<(), String> {
+    production
+        .lock()
+        .map_err(|_| "Produção indisponível.")?
+        .cancel
+        .store(true, Ordering::Relaxed);
+    Ok(())
+}
+
+#[tauri::command]
+fn retry_production(production: State<'_, media::SharedProduction>) -> Result<(), String> {
+    let request = {
+        let manager = production.lock().map_err(|_| "Produção indisponível.")?;
+        if manager.busy {
+            return Err("Já existe uma produção em curso.".into());
+        }
+        let snapshot = manager.snapshot();
+        let id = snapshot["id"]
+            .as_str()
+            .ok_or("Ainda não existe uma produção.")?;
+        if !id
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+        {
+            return Err("Job inválido.".into());
+        }
+        let mut request: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(manager.root.join("requests").join(format!("{id}.json")))
+                .map_err(|e| e.to_string())?,
+        )
+        .map_err(|e| e.to_string())?;
+        if let Some(clips) = snapshot["clips"]
+            .as_array()
+            .filter(|clips| !clips.is_empty())
+        {
+            request["moments"] = serde_json::json!(
+                clips
+                    .iter()
+                    .filter(|clip| clip["status"] != "ready")
+                    .map(|clip| clip["moment"].clone())
+                    .collect::<Vec<_>>()
+            );
+        }
+        if request["moments"].as_array().is_none_or(|m| m.is_empty()) {
+            return Err("Todos os clips desta produção estão prontos.".into());
+        }
+        request["id"] = serde_json::json!(media::id());
+        request
+    };
+    media::start(production.inner().clone(), request)
+}
+
+#[tauri::command]
+fn open_media_output(
+    index: Option<usize>,
+    production: State<'_, media::SharedProduction>,
+) -> Result<(), String> {
+    let manager = production.lock().map_err(|_| "Produção indisponível.")?;
+    let path = if let Some(index) = index {
+        let snapshot = manager.snapshot();
+        let path = snapshot["clips"][index]["path"]
+            .as_str()
+            .ok_or("O clip ainda não está pronto.")?
+            .to_owned();
+        let path = std::path::PathBuf::from(path)
+            .canonicalize()
+            .map_err(|e| e.to_string())?;
+        if !path.starts_with(manager.root.canonicalize().map_err(|e| e.to_string())?)
+            || !path.is_file()
+        {
+            return Err("Clip inválido.".into());
+        }
+        path
+    } else {
+        std::fs::create_dir_all(&manager.root).map_err(|e| e.to_string())?;
+        manager.root.clone()
+    };
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        let system = std::env::var_os("SystemRoot").ok_or("Windows indisponível.")?;
+        let program = std::path::PathBuf::from(system).join(if index.is_some() {
+            "System32/rundll32.exe"
+        } else {
+            "explorer.exe"
+        });
+        let mut command = std::process::Command::new(program);
+        if index.is_some() {
+            command.arg("url.dll,FileProtocolHandler");
+        }
+        command
+            .arg(path)
+            .creation_flags(0x08000000)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn pick_media_source() -> Result<Option<String>, String> {
+    let selected = rfd::AsyncFileDialog::new()
+        .set_title("Analisar vídeo local")
+        .add_filter("Vídeo", &["mp4", "mkv", "mov", "webm", "m4v", "avi"])
+        .pick_file()
+        .await;
+    selected
+        .map(|file| {
+            url::Url::from_file_path(file.path())
+                .map(|url| url.to_string())
+                .map_err(|_| "Ficheiro inválido.".into())
+        })
+        .transpose()
+}
+
+async fn media_cli(args: &[String]) -> Result<(), String> {
+    let file = args
+        .get(2)
+        .ok_or("Uso: ChatScope --media-job pedido.json")?;
+    let job: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(file).map_err(|e| e.to_string())?)
+            .map_err(|e| e.to_string())?;
+    let output = job["output"]
+        .as_str()
+        .ok_or("Falta o caminho output para o resultado JSON.")?;
+    for key in ["start", "end"] {
+        if job
+            .get(key)
+            .is_some_and(|v| !v.is_null() && v.as_f64().is_none())
+        {
+            return Err(format!("{key} deve ser um número de segundos."));
+        }
+    }
+    let capture_seconds = job["captureSeconds"].as_u64().unwrap_or(120);
+    if !(30..=600).contains(&capture_seconds) {
+        return Err("captureSeconds deve ficar entre 30 e 600.".into());
+    }
+    let input = scope::parse_input(job["url"].as_str().ok_or("Falta url.")?)?;
+    let profile: clips::ClipProfile = serde_json::from_value(
+        job.get("clipProfile")
+            .cloned()
+            .unwrap_or(serde_json::json!({})),
+    )
+    .map_err(|e| e.to_string())?;
+    profile.validate()?;
+    let (source, analysis) = media::analyze_at(
+        &input.url,
+        job["start"].as_f64(),
+        job["end"].as_f64(),
+        &profile,
+        capture_seconds as u32,
+        Arc::new(AtomicBool::new(false)),
+        job["outputRoot"]
+            .as_str()
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(media::root),
+    )
+    .await?;
+    let production = if job["produce"].as_bool().unwrap_or(false) {
+        let mut manager = media::Production::new(
+            job["outputRoot"]
+                .as_str()
+                .map(std::path::PathBuf::from)
+                .unwrap_or_else(media::root),
+        );
+        manager.reserve()?;
+        let moments = if let Some(value) = job.get("moments") {
+            serde_json::from_value(value.clone()).map_err(|e| e.to_string())?
+        } else {
+            analysis.moments.clone()
+        };
+        if moments.is_empty() && job.get("moments").is_none() {
+            media::atomic_json(
+                std::path::Path::new(output),
+                &serde_json::json!({"source":source,"video":analysis,"production":{"status":"no_candidates","clips":[]}}),
+            )?;
+            return Ok(());
+        }
+        let render_profile = serde_json::from_value(
+            job.get("renderProfile")
+                .cloned()
+                .unwrap_or(serde_json::json!({})),
+        )
+        .map_err(|e| e.to_string())?;
+        let mut request = media::request(
+            &source,
+            Some(&analysis),
+            moments,
+            &profile,
+            render_profile,
+            job["topic"].as_str().unwrap_or("geral"),
+        )?;
+        if let Some(root) = job.get("outputRoot") {
+            request["root"] = root.clone();
+        }
+        media::atomic_json(
+            &manager
+                .root
+                .join("requests")
+                .join(format!("{}.json", request["id"].as_str().unwrap())),
+            &request,
+        )?;
+        Some(media::call(&request, Arc::new(AtomicBool::new(false)), 21600).await?)
+    } else {
+        None
+    };
+    media::atomic_json(
+        std::path::Path::new(output),
+        &serde_json::json!({"source":source,"video":analysis,"production":production}),
+    )?;
+    if production
+        .as_ref()
+        .is_some_and(|p| p["status"] != "complete")
+    {
+        return Err("Produção incompleta; consulta os erros no JSON de resultado.".into());
+    }
+    Ok(())
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    if args.get(1).is_some_and(|s| s == "--media-job") {
+        let result = tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(media_cli(&args));
+        if let Err(error) = result {
+            eprintln!("{error}");
+            std::process::exit(1);
+        }
+        return;
+    }
     if args.get(1).is_some_and(|s| s == "--scope-youtube") {
         let result = tokio::runtime::Runtime::new()
             .unwrap()
@@ -435,6 +742,9 @@ fn main() {
             Ok(())
         })
         .manage(Arc::new(Mutex::new(Session::default())) as Shared)
+        .manage(
+            Arc::new(Mutex::new(media::Production::new(media::root()))) as media::SharedProduction
+        )
         .invoke_handler(tauri::generate_handler![
             get_source_capabilities,
             get_example_vod,
@@ -442,7 +752,13 @@ fn main() {
             stop_capture,
             get_snapshot,
             export_chat,
-            open_youtube_moment
+            open_youtube_moment,
+            create_clips,
+            get_production,
+            cancel_production,
+            retry_production,
+            open_media_output,
+            pick_media_source
         ])
         .run(tauri::generate_context!())
         .expect("Não foi possível iniciar o ChatScope");
@@ -489,6 +805,10 @@ async fn youtube_cli(args: &[String]) -> Result<(), String> {
                 .map(|value| chat::parse_time(value))
                 .transpose()?,
             &profile,
+            providers::CaptureOptions {
+                video_mode: false,
+                capture_seconds: 120,
+            },
             Arc::new(AtomicBool::new(false)),
         )
         .await?;

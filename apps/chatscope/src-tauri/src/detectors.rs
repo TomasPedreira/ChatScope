@@ -8,6 +8,22 @@ pub trait MomentDetector<T: ?Sized> {
     fn detect(&self, input: &T, bounds: TimeRange, profile: &ClipProfile) -> Vec<Moment>;
 }
 pub struct HeatmapDetector;
+pub struct AudioEnergyDetector;
+impl MomentDetector<[SignalPoint]> for AudioEnergyDetector {
+    fn detect(
+        &self,
+        input: &[SignalPoint],
+        bounds: TimeRange,
+        profile: &ClipProfile,
+    ) -> Vec<Moment> {
+        let mut moments = detect_heatmap(input, bounds, profile);
+        for moment in &mut moments {
+            moment.signal = "audio_energy".into();
+            moment.reason = "Pico de energia no áudio · confirmar contexto".into();
+        }
+        moments
+    }
+}
 impl MomentDetector<[SignalPoint]> for HeatmapDetector {
     fn detect(
         &self,

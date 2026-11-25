@@ -20,7 +20,7 @@ function youtubeInput() {
   catch { return false; }
 }
 function updateStartLabel() {
-  $('start').textContent = youtubeInput() ? 'Analisar YouTube' : 'Capturar';
+  $('start').textContent = youtubeInput() ? 'Analisar YouTube' : $('url').value.startsWith('file:') ? 'Analisar vídeo' : 'Capturar';
 }
 function toast(message) {
   $('toast').textContent = message;
@@ -69,7 +69,9 @@ function renderMessages(force = false) {
     : `${formatNumber(count)} ${filtered ? 'resultados' : 'mensagens'}`;
 }
 function selectMoment(highlight, index) {
-  if (snapshot?.provider === 'youtube') {
+  $('render-start').value = String(Number(highlight.start.toFixed(3)));
+  $('render-end').value = String(Number(highlight.end.toFixed(3)));
+  if (snapshot?.video || snapshot?.provider === 'youtube') {
     selectedRange = {start:highlight.start,end:highlight.end};
     selectedYouTubeMoment = highlight;
     renderYouTubeSelection();
@@ -94,24 +96,30 @@ function renderYouTubeSelection() {
   $('youtube-moment-reason').textContent = `${selectedYouTubeMoment.reason} · pico em ${time(selectedYouTubeMoment.peak)} · ${Math.round(selectedYouTubeMoment.end-selectedYouTubeMoment.start)} s`;
 }
 function renderYouTube(data) {
-  const analysis = data.youtube;
-  const points = analysis?.heatmap || [];
+  const analysis = data.video || data.youtube;
+  const points = analysis?.points || analysis?.heatmap || [];
+  const audio = analysis?.signal === 'audio_energy';
+  $('video-heading').textContent = data.provider === 'local' ? 'Vídeo local' : `Vídeo ${data.provider}`;
+  $('video-signal').textContent = audio ? 'Energia do áudio' : 'Most replayed';
+  $('timeline-heading').textContent = audio ? 'Variação da energia no áudio' : 'Onde as pessoas voltam a ver';
+  $('open-youtube').classList.toggle('hidden', data.provider !== 'youtube' || analysis?.timeOrigin === 'recording');
+  $('video-explanation').textContent = audio ? 'O volume pode destacar música, ruído ou entusiasmo. É uma sugestão heurística: confirma o contexto. Num direto, os tempos referem-se à gravação local.' : 'O heatmap é um sinal relativo de repetição, sem contagens de cliques ou percentagens de espectadores. A disponibilidade depende do vídeo e pode mudar.';
   const moments = data.moments || [];
   $('youtube-pill').textContent = $('chat-pill').textContent;
   $('youtube-pill').className = $('chat-pill').className;
   $('users').textContent = formatNumber(points.length);
   $('reactions').textContent = points.length ? Math.max(...points.map(point=>point.value)).toFixed(2) : '—';
   $('highlight-count').textContent = formatNumber(moments.length);
-  $('youtube-description').textContent = !analysis ? data.detail : analysis.availability === 'unavailable'
+  $('youtube-description').textContent = !analysis ? data.detail : audio && analysis.availability === 'unavailable' ? 'O vídeo não tem áudio utilizável. Podes escolher um corte manual para criar o MP4.' : analysis.availability === 'unavailable'
     ? 'O vídeo foi consultado, mas o YouTube não disponibilizou um heatmap público.'
-    : 'Usa os picos de repetição para escolher intervalos a rever no vídeo original.';
+    : audio ? 'Analisa os picos de áudio e revê os intervalos. Podes ajustar o corte e criar um MP4 local.' : 'Usa os picos de repetição para escolher intervalos a rever no vídeo original.';
   $('youtube-timeline-section').classList.toggle('hidden', !points.length);
   const empty = analysis && !moments.length;
   $('youtube-empty').classList.toggle('hidden', !empty);
-  $('youtube-empty').textContent = analysis?.availability === 'unavailable'
+  $('youtube-empty').textContent = audio ? 'Sem picos distintos de áudio. Podes definir o início e o fim do corte manualmente.' : analysis?.availability === 'unavailable'
     ? 'Sem heatmap disponível. O vídeo pode ser demasiado recente, ter poucas visualizações ou não ser elegível. Não existe um prazo público garantido. Podes voltar a analisar mais tarde.'
     : 'Sem picos distintos no intervalo escolhido. Podes selecionar um segmento da timeline ou analisar um intervalo maior.';
-  const key = JSON.stringify(['youtube',data.source?.url,data.status,analysis]);
+  const key = JSON.stringify(['video',data.source?.url,data.status,analysis]);
   if (key !== lastAnalysisKey) {
     lastAnalysisKey = key;
     const bars = points.map(point=>{
@@ -126,7 +134,7 @@ function renderYouTube(data) {
         const length=Math.min(profile.duration,data.source.end-data.source.start);
         const start=Math.max(data.source.start,Math.min(peak-profile.beforePeak,data.source.end-length));
         selectMoment({start,end:start+length,peak,
-          strength:point.value,signal:'youtube_heatmap',reason:`Segmento selecionado · intensidade relativa ${point.value.toFixed(2)}/1`},0);
+          strength:point.value,signal:analysis?.signal || 'youtube_heatmap',reason:`Segmento selecionado · intensidade relativa ${point.value.toFixed(2)}/1`},0);
       });
       return bar;
     });
@@ -140,7 +148,7 @@ function renderYouTube(data) {
     if (!points.length) $('chart').append(textNode('div','chart-empty',analysis ? 'Sem heatmap' : 'A consultar…'));
     $('chart-start').textContent = $('youtube-start').textContent = time(data.source?.start);
     $('chart-end').textContent = $('youtube-end').textContent = time(data.source?.end);
-    $('chart-caption').textContent = 'Repetição relativa';
+    $('chart-caption').textContent = audio ? 'Energia relativa do áudio' : 'Repetição relativa';
     $('highlights').replaceChildren(...moments.map((moment,index)=>{
       const card = document.createElement('button'); card.className = 'highlight'; card.type = 'button';
       card.dataset.start = moment.start; card.dataset.end = moment.end;
@@ -151,7 +159,7 @@ function renderYouTube(data) {
       return card;
     }));
     if (!moments.length) $('highlights').append(textNode('div','highlight-empty',analysis ? 'Sem candidatos para este vídeo ou intervalo.' : 'A consultar o YouTube…'));
-    if (!selectedYouTubeMoment && moments.length) selectMoment(moments[0],0);
+    if (!selectedYouTubeMoment && !manualCutEdited && moments.length) selectMoment(moments[0],0);
   }
   renderYouTubeSelection();
   markSelectedMoment();
@@ -210,24 +218,29 @@ function render(data) {
   if (oldSource !== data.source?.url || snapshot?.provider !== data.provider) {
     selectedRange = null;
     selectedYouTubeMoment = null;
+    manualCutEdited = false;
+    $('render-start').value = $('render-end').value = '';
   }
   snapshot = data;
-  const isYouTube = data.provider === 'youtube';
+  const isYouTube = data.provider === 'youtube' || !!data.video;
+  const isAudio = data.video?.signal === 'audio_energy';
   $('twitch-panel').classList.toggle('hidden',isYouTube);
   $('youtube-panel').classList.toggle('hidden',!isYouTube);
   $('users-label').textContent = isYouTube ? 'segmentos' : 'participantes';
   $('reactions-label').textContent = isYouTube ? 'pico · 0–1' : 'reações';
-  $('activity-title').textContent = isYouTube ? 'Repetição' : 'Atividade';
+  $('activity-title').textContent = isAudio ? 'Energia do áudio' : isYouTube ? 'Repetição' : 'Atividade';
   $('chart-legend').classList.toggle('hidden',isYouTube);
-  document.querySelector('.heuristic').textContent = isYouTube ? 'por repetição' : 'por atividade';
+  document.querySelector('.heuristic').textContent = isAudio ? 'por áudio' : isYouTube ? 'por repetição' : 'por atividade';
   document.querySelector('.analysis-hint').textContent = isYouTube ? 'Seleciona um momento para rever no vídeo original.' : 'Seleciona um intervalo para ver as mensagens.';
-  document.querySelector('.analysis-footnote').textContent = isYouTube ? 'Sinal público de repetição. Um pico precisa de revisão no vídeo.' : 'Deteção pelo chat. O conteúdo do vídeo precisa de revisão.';
+  document.querySelector('.analysis-footnote').textContent = isAudio ? 'Energia do áudio. Música e ruído também podem criar picos: revê o vídeo.' : isYouTube ? 'Sinal público de repetição. Um pico precisa de revisão no vídeo.' : 'Deteção pelo chat. O conteúdo do vídeo precisa de revisão.';
   $('export-note').textContent = isYouTube ? 'Exporta metadados, heatmap e candidatos da sessão' : 'Sessão em memória · exporta antes de fechar';
+  $('render-selection').disabled = !data.source || productionBusy;
+  $('render-all').disabled = !data.moments?.length || productionBusy;
   const active = ['connecting', 'live', 'downloading', 'stopping'].includes(data.status);
   $('start').classList.toggle('hidden', active);
   $('stop').classList.toggle('hidden', !active);
   $('stop').disabled = data.status === 'stopping';
-  for (const id of ['url', 'range-start', 'range-end', 'example-live', 'example-vod','example-youtube','clip-duration','clip-before','clip-count']) $(id).disabled = active;
+  for (const id of ['url', 'range-start', 'range-end', 'example-live', 'example-vod','example-youtube','clip-duration','clip-before','clip-count','video-mode','capture-seconds','local-source']) $(id).disabled = active;
   $('notice').className = `notice ${data.status}`;
   $('notice-text').textContent = data.detail || 'Sem sessão. Introduz um URL para começar.';
   const statusLabels = {connecting:'A LIGAR', live:'AO VIVO', downloading:'A EXTRAIR', stopped:'PARADO', complete:'CONCLUÍDO', error:'ERRO', stopping:'A PARAR'};
@@ -273,7 +286,8 @@ $('capture-form').addEventListener('submit', async event => {
   }
   $('start').disabled = true;
   try {
-    await invoke('start_capture', { url: $('url').value, start: $('range-start').value || null, end: $('range-end').value || null, clipProfile });
+    await invoke('start_capture', { url: $('url').value, start: $('range-start').value || null, end: $('range-end').value || null, clipProfile,
+      videoMode:$('video-mode').checked,captureSeconds:Number($('capture-seconds').value) });
     selectedRange = null;
     selectedYouTubeMoment = null;
     lastMessagesKey = '';
@@ -346,4 +360,52 @@ document.addEventListener('keydown', event => {
 });
 poll();
 setInterval(poll, 1000);
+
+let productionBusy = false;
+let manualCutEdited = false;
+for (const id of ['render-start','render-end']) $(id).addEventListener('input',()=>{manualCutEdited=true;});
+let productionKey = '';
+async function pollProduction() {
+  try {
+    const job = await invoke('get_production');
+    if (!job) return;
+    productionBusy = job.busy;
+    $('render-selection').disabled = !snapshot?.source || productionBusy;
+    $('render-all').disabled = !snapshot?.moments?.length || productionBusy;
+    $('render-cancel').classList.toggle('hidden', !productionBusy || job.writable === false);
+    $('render-retry').classList.toggle('hidden', productionBusy || !['interrupted','cancelled','error','partial'].includes(job.status));
+    const clips = job.clips || [];
+    const ready = clips.filter(clip=>clip.status==='ready').length;
+    const labels={idle:'sem uploads automáticos',running:'em curso',complete:'concluída',partial:'parcial',cancelled:'cancelada',interrupted:'interrompida',error:'erro'};
+    $('production-summary').textContent = `Produção local · ${labels[job.status] || job.status}${clips.length ? ` · ${ready}/${clips.length} MP4 prontos` : ''}${job.detail ? ` · ${job.detail}` : ''}`;
+    const key=JSON.stringify(clips);
+    if(key===productionKey)return;
+    productionKey=key;
+    $('production-clips').replaceChildren(...clips.map((clip,index)=>{
+      const row=document.createElement('div');row.className='production-clip';
+      const statuses={queued:'em fila',acquiring:'a adquirir vídeo',rendering:'a editar',ready:'pronto',error:'erro',cancelled:'cancelado',interrupted:'interrompido'};
+      row.append(textNode('span','',`${index+1}. ${time(clip.moment?.start)} — ${time(clip.moment?.end)} · ${statuses[clip.status] || clip.status}${clip.error ? ` · ${clip.error}` : ''}`));
+      if(clip.status==='ready'){
+        const open=textNode('button','','Rever MP4 ↗');open.type='button';
+        open.addEventListener('click',()=>invoke('open_media_output',{index}).catch(error=>toast(String(error))));row.append(open);
+      }
+      return row;
+    }));
+  } catch(error) { $('production-summary').textContent = `Produção indisponível: ${String(error)}`; }
+}
+for(const [id,all] of [['render-selection',false],['render-all',true]]) $(id).addEventListener('click',async()=>{
+  try{
+    await invoke('create_clips',{start:$('render-start').value || null,end:$('render-end').value || null,all,
+      renderProfile:{aspect:$('render-aspect').value,fit:$('render-fit').value,captions:$('render-captions').checked},topic:$('render-topic').value});
+    $('production-results').open=true;await pollProduction();
+  }catch(error){toast(String(error));}
+});
+$('render-cancel').addEventListener('click',()=>invoke('cancel_production').then(pollProduction).catch(error=>toast(String(error))));
+$('render-retry').addEventListener('click',()=>invoke('retry_production').then(pollProduction).catch(error=>toast(String(error))));
+$('open-output').addEventListener('click',()=>invoke('open_media_output').catch(error=>toast(String(error))));
+$('local-source').addEventListener('click',async()=>{
+  try{const url=await invoke('pick_media_source');if(url){$('url').value=url;updateStartLabel();$('range-start').value='';$('range-end').value='';}}
+  catch(error){toast(String(error));}
+});
+pollProduction();setInterval(pollProduction,1000);
 

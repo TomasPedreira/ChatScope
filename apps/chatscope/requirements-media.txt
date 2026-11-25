@@ -1,0 +1,4 @@
+-r requirements-youtube.txt
+yt-dlp[default]==2026.11.23
+imageio-ffmpeg==0.6.0
+tzdata>=2025.2
