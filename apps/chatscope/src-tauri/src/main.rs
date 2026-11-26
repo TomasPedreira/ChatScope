@@ -4,6 +4,7 @@ mod clips;
 mod detectors;
 mod providers;
 use detectors::MomentDetector;
+mod kick;
 mod media;
 mod scope;
 mod youtube;

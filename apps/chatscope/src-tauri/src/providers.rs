@@ -16,7 +16,8 @@ pub enum PreparedSource {
     Chat(Source),
     Video(Source, crate::scope::VideoAnalysis),
 }
-type Preparation<'a> = Pin<Box<dyn Future<Output = Result<PreparedSource, String>> + Send + 'a>>;
+pub(crate) type Preparation<'a> =
+    Pin<Box<dyn Future<Output = Result<PreparedSource, String>> + Send + 'a>>;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -235,7 +236,7 @@ mod tests {
     fn registry_reports_only_implemented_acquisition_modes() {
         let registry = ProviderRegistry::default();
         let capabilities = registry.capabilities();
-        assert_eq!(capabilities.len(), 3);
+        assert_eq!(capabilities.len(), 4);
         assert!(
             capabilities
                 .iter()
@@ -249,7 +250,13 @@ mod tests {
             .unwrap();
         assert!(youtube.replay_heatmap);
         assert!(!youtube.live_chat);
-        assert!(registry.resolve("https://kick.com/example").is_err());
+        let kick = capabilities
+            .iter()
+            .find(|item| item.provider == "kick")
+            .unwrap();
+        assert!(kick.media_capture);
+        assert!(!kick.live_chat);
+        assert!(!kick.replay_heatmap);
     }
 }
 impl Default for ProviderRegistry {
@@ -259,6 +266,7 @@ impl Default for ProviderRegistry {
                 Box::new(TwitchProvider),
                 Box::new(YouTubeProvider),
                 Box::new(LocalProvider),
+                Box::new(crate::kick::KickProvider),
             ],
         }
     }

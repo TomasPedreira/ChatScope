@@ -134,6 +134,9 @@ class SourceRegistry:
         if parsed.scheme != "https" or parsed.username or parsed.password or parsed.port not in (None, 443):
             raise ValueError("Usa um URL HTTPS de uma origem suportada.")
         host = parsed.hostname
+        if host in ("kick.com", "www.kick.com"):
+            from .kick import KickSource
+            return "kick", KickSource(url)
         for provider, hosts in {"youtube": ("youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "www.youtu.be"),
                                 "twitch": ("twitch.tv", "www.twitch.tv", "m.twitch.tv", "clips.twitch.tv")}.items():
             if host in hosts:

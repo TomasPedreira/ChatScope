@@ -3,13 +3,13 @@
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ChatScope</title><link rel="stylesheet" href="style.css"><script src="app.js" defer></script></head>
 <body>
   <header class="app-header">
-    <div class="app-title"><svg class="app-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v12h-8l-6 4V4Z"/><path d="M9 8h6M9 12h4"/></svg><strong>ChatScope</strong><span class="title-divider">/</span><span>Twitch + YouTube + vídeo local</span></div>
-    <div class="app-context">Chat Twitch <span class="context-divider">/</span> Vídeo YouTube</div>
+    <div class="app-title"><svg class="app-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v12h-8l-6 4V4Z"/><path d="M9 8h6M9 12h4"/></svg><strong>ChatScope</strong><span class="title-divider">/</span><span>Twitch + YouTube + Kick + vídeo local</span></div>
+    <div class="app-context">Chat e sinais de vídeo</div>
   </header>
   <main>
     <section class="capture-controls" aria-label="Origem da análise">
       <form id="capture-form">
-        <label class="url-field"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 13 4-4m-6 7-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 1 1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0"/></svg><input id="url" aria-label="URL da Twitch ou do YouTube" type="text" spellcheck="false" placeholder="URL da Twitch ou de um vídeo YouTube" autocomplete="off"></label>
+        <label class="url-field"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 13 4-4m-6 7-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 1 1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0"/></svg><input id="url" aria-label="URL da Twitch, YouTube ou Kick" type="text" spellcheck="false" placeholder="URL da Twitch, YouTube, Kick ou vídeo local" autocomplete="off"></label>
         <button id="start" class="capture-button" type="submit"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m8 4 6 6-6 6"/></svg>Capturar</button>
         <button id="stop" class="stop-button hidden" type="button"><span>■</span>Parar</button>
       </form>
