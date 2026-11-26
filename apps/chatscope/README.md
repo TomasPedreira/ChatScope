@@ -1,8 +1,35 @@
 # ChatScope
 
-Aplicação desktop Windows em **Rust + Tauri 2**, criada a partir das tarefas
-«twitch chat» do workspace Clipping: acesso ao chat, recolha de sinais de momentos
-engraçados e processamento desses sinais.
+Desktop Windows em Rust + Tauri 2 para encontrar momentos e criar MP4 locais
+de Twitch, YouTube (incluindo diretos) e ficheiros locais. A integração Kick
+fica na branch `kick_scoper`. [Arquitetura](../../docs/media-pipeline.md).
+
+## Preparar e produzir clips
+
+Executa `Setup-Media.ps1` nesta pasta uma vez (Python 3.10+). Reutiliza
+`.venv-youtube`, instala yt-dlp/EJS, FFmpeg e tzdata. Node no PATH é usado
+para JavaScript do YouTube. Para legendas: `Setup-Media.ps1 -Captions`.
+
+1. Cola um URL ou escolhe vídeo local em **Perfil do clip**.
+2. Define duração, contexto e máximo de candidatos. Sem heatmap, escolhe um
+   intervalo até dez minutos. Em diretos, deixa início/fim vazios e define
+   a captura (30–600 s). Para vídeo de Twitch live, ativa o modo vídeo/áudio.
+3. Analisa o heatmap ou áudio; Twitch em modo chat mantém as reações de público.
+4. Seleciona um momento e ajusta o corte, formato, enquadramento, tema e legendas.
+5. Escolhe **Criar este MP4** ou **Criar todos os sugeridos**.
+6. Revê os ficheiros em `media/daily/YYYY-MM-DD/clips/TEMA/` e `clips-index.md`.
+
+A produção guarda progresso, masters, perfis e hashes. Pode ser cancelada;
+**Retomar incompletos** preserva os MP4 prontos. Fechar a app termina os processos
+filhos e permite retomar no arranque seguinte. Nada é publicado automaticamente.
+
+Os tempos de diretos referem-se à gravação local. A captura termina após o bloco
+escolhido; ainda não há buffer contínuo. Volume/repetição são sugestões heurísticas,
+sem compreensão semântica da história. Confirmar vídeo e áudio antes de publicar.
+
+`ChatScope.exe --media-job pedido.json` usa o mesmo pipeline; formato e exemplos
+em [media-pipeline.md](../../docs/media-pipeline.md). A CLI de análise
+`--scope-youtube` permanece disponível.
 
 ## Abrir
 
@@ -48,8 +75,9 @@ em vez de depender de um identificador que pode expirar.
   `KEKW`, `OMEGALUL`, `LOL`, `LMAO`, `Pog`, risos escritos e 😂/🤣.
 - Um candidato exige pelo menos 4 mensagens, 2 reações e 3 participantes
   distintos na janela. O sinal combina proporção de reações, atividade face à
-  média da sessão e participantes distintos; o intervalo sugerido inclui os
-  10 segundos anteriores. Mostra até 8 candidatos sem sobreposição.
+  média da sessão e participantes distintos. Na interface, os intervalos usam
+  o perfil do clip e são selecionados sem sobreposição; o limite inicial é oito.
+  A CLI de captura de chat conserva a análise legada de oito momentos.
 - O valor de 0–100 exportado em JSON é um **score heurístico** usado para ordenar
   os momentos, sem interpretação probabilística. A interface mostra os horários
   e as contagens de reações/participantes em vez desse valor.

@@ -23,6 +23,18 @@ button:disabled { opacity: .38; cursor: default; }
 button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 svg { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
 .hidden { display: none !important; }
+.production { padding: 9px 24px; border-top: 1px solid var(--border); flex-shrink: 0; font-size: 11px; }
+.render-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 7px; }
+.render-controls label { display: flex; align-items: center; gap: 5px; }
+.render-controls input:not([type=checkbox]) { width: 76px; }
+.render-controls input,.render-controls select,.render-controls button,.production-clip button,#local-source { color: #d7dce4; background: #21262e; border: 1px solid #4c5e79; padding: 5px 7px; border-radius: 4px; font: inherit; }
+#render-selection { background: var(--accent); color: #1c2914; }
+#production-results { color: #a4b29e; }
+#production-results summary { cursor: pointer; overflow-wrap: anywhere; }
+#production-clips { max-height: 100px; overflow-y: auto; }
+.production-clip { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding-top: 6px; overflow-wrap: anywhere; }
+.production-clip span { min-width: 0; }
+.production-clip button { flex-shrink: 0; }
 .app-header { height: 48px; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; border-bottom: 1px solid var(--border); background: #1a1c21; user-select: none; }
 .app-title { display: flex; align-items: center; gap: 12px; font-size: 12px; color: #929dab; }
 .app-title strong { color: #e5e9ee; font-size: 13px; font-weight: 600; letter-spacing: -.2px; }
@@ -107,7 +119,8 @@ input[type=checkbox]:checked:after { content: ""; position: absolute; width: 5px
 .empty-state>div { font-size: 10px; color: #6d8098; }
 kbd { font: 10px var(--mono); border: 1px solid #394a61; background: #1c242f; padding: 3px 5px; border-radius: 3px; color: #8c9fba; }
 .chat-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 37px; margin: 0 24px; border-top: 1px solid var(--border); color: #8a9bb1; font-size: 10px; flex-shrink: 0; }
-.analysis-panel { display: flex; flex-direction: column; min-height: 0; border-left: 1px solid var(--border); background: #1b1e24; }
+.analysis-panel { display: flex; flex-direction: column; min-height: 0; overflow-y: auto; border-left: 1px solid var(--border); background: #1b1e24; }
+.analysis-panel > * { flex-shrink: 0; }
 .analysis-panel>.pane-heading { padding: 0 20px; }
 #session-duration { font: 10px var(--mono); color: #8193ac; }
 .metrics { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin: 0; padding: 5px 20px 23px; border-bottom: 1px solid var(--border); }
@@ -124,7 +137,7 @@ kbd { font: 10px var(--mono); border: 1px solid #394a61; background: #1c242f; pa
 .chart-bar { position: relative; flex: 1; min-width: 1px; border-radius: 1px 1px 0 0; background: #4a5b73; }
 .chart-bar-reaction { position: absolute; bottom: 0; left: 0; right: 0; background: #a2c67f; }
 .chart-axis { display: flex; justify-content: space-between; color: #8399b7; font: 9px var(--mono); }
-.highlights-section { display: flex; flex-direction: column; min-height: 0; flex: 1; padding: 21px 0 0; }
+.highlights-section { display: flex; flex-direction: column; min-height: 140px; flex: 1 0 140px; padding: 21px 0 0; }
 .highlights-section>.section-heading, .analysis-hint { margin-left: 20px; margin-right: 20px; }
 .heuristic { font: 9px var(--mono); color: #8a9cb5; }
 .analysis-hint { margin-top: 10px; margin-bottom: 15px; color: #91a4bf; font-size: 11px; line-height: 1.7; }
@@ -149,6 +162,30 @@ kbd { font: 10px var(--mono); border: 1px solid #394a61; background: #1c242f; pa
 .export-actions button svg { width: 13px; height: 13px; color: #92a9c9; }
 .toast { position: fixed; left: 50%; bottom: 66px; z-index: 20; transform: translateX(-50%); max-width: 900px; padding: 12px 17px; border: 1px solid #64754f; border-radius: 4px; background: #303a29; color: #d1e7bb; font-size: 12px; overflow-wrap: anywhere; box-shadow: 0 4px 25px #0005; }
 @keyframes pulse { 50% { opacity: .3; } }
+.youtube-panel { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.clip-profile { margin-top: 10px; color: #9ba8b9; font-size: 11px; }
+.clip-profile summary { cursor: pointer; width: fit-content; }
+.profile-fields { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 12px; }
+.profile-fields label { display: flex; gap: 7px; align-items: center; }
+.profile-fields input { width: 65px; padding: 5px 7px; border: 1px solid #424b58; border-radius: 3px; background: #121418; color: #d7dfe8; }
+.clip-profile p { color: #7f8b9a; line-height: 1.6; margin-bottom: 0; }
+.youtube-content { overflow-y: auto; padding: 0 24px 24px; }
+.youtube-signal { font-size: 11px; color: #dfaea6; }
+.youtube-description { color: #c0ccdc; font-size: 13px; line-height: 1.8; margin: 12px 0 32px; }
+.youtube-content .section-heading>span { font-size: 10px; color: var(--muted); }
+.youtube-timeline { display: flex; align-items: flex-end; gap: 2px; height: 140px; margin: 18px 0 10px; border-bottom: 1px solid #66504e; background: repeating-linear-gradient(to top,transparent 0,transparent 34px,#28252a 35px); }
+.youtube-bin { flex: 1; min-width: 0; border: 0; padding: 0; border-radius: 2px 2px 0 0; background: #b8786e; }
+.youtube-bin:hover,.youtube-bin:focus-visible { background: #f2b9ad; }
+.chart-bar.youtube { background: #b8786e; min-width: 0; }
+.youtube-moment { margin-top: 32px; border: 1px solid #44433a; border-radius: 6px; padding: 22px; background: #1d211e; }
+.eyebrow { font: 10px var(--mono); color: #a9bd94; letter-spacing: 1px; }
+.youtube-moment h2 { font: 28px var(--mono); color: #d5e4c8; margin: 14px 0; }
+.youtube-moment p { font-size: 12px; line-height: 1.8; color: #a4b29e; }
+#open-youtube { padding: 11px 15px; border: 1px solid #65764f; border-radius: 4px; background: #b2d78e; color: #1c2914; margin: 10px 0; }
+.youtube-moment .youtube-context { color: #8b9c89; margin-bottom: 0; }
+.youtube-explanation { color: var(--muted); font-size: 11px; line-height: 1.9; margin-top: 28px; }
+.youtube-empty { padding: 22px; background: #242329; border: 1px solid #49414c; border-radius: 4px; font-size: 13px; line-height: 1.8; color: #c9bacb; }
+@media(max-height:700px) { .youtube-timeline { height: 95px; } .youtube-moment { margin-top: 22px; padding: 16px; } .youtube-description { margin-bottom: 22px; } }
 @media(max-width:1060px) {
   .workspace { grid-template-columns: minmax(0,1fr) 304px; }
   .app-header,.capture-controls,.session-strip,.source-meta,.export-bar,.pane-heading { padding-left: 18px; padding-right: 18px; }
