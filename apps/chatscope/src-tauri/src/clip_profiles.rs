@@ -161,6 +161,15 @@ mod tests {
             assert!(profile.validate().is_err());
         }
     }
+
+    #[test]
+    fn portuguese_output_is_preserved_in_the_language_profile() {
+        let saved =
+            serde_json::json!({"sourceLanguage":"pt","targetLanguage":"pt","model":"small"});
+        let profile: CaptionProfile = serde_json::from_value(saved.clone()).unwrap();
+        profile.validate().unwrap();
+        assert_eq!(serde_json::to_value(profile).unwrap(), saved);
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -224,8 +233,8 @@ impl CaptionProfile {
         {
             return Err("Indica auto ou um código de língua de origem.".into());
         }
-        if self.target_language != "en" {
-            return Err("Este provider de legendas suporta saída em inglês (en).".into());
+        if !["en", "pt"].contains(&self.target_language.as_str()) {
+            return Err("Escolhe inglês (en) ou português (pt) para as legendas.".into());
         }
         if !["tiny", "base", "small", "medium", "large-v3"].contains(&self.model.as_str()) {
             return Err("Escolhe um modelo Whisper multilingue com tradução.".into());

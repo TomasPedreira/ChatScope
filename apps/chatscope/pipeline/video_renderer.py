@@ -74,7 +74,9 @@ class FFmpegRenderer(Renderer):
             else:
                 caption_metadata = {
                     "status": "no_audio",
-                    "language": "en",
+                    "language": render_profile.get("captionProfile", {}).get(
+                        "targetLanguage", "en"
+                    ),
                     "cueCount": 0,
                 }
             if caption_metadata["status"] == "ready":

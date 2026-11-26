@@ -99,7 +99,7 @@ export function createClipProductionView(getSessionSnapshot) {
             captions: $("render-captions").checked,
             captionProfile: {
               sourceLanguage: $("caption-source-language").value,
-              targetLanguage: "en",
+              targetLanguage: $("caption-target-language").value,
               model: "small",
             },
           },
@@ -116,9 +116,27 @@ export function createClipProductionView(getSessionSnapshot) {
       .then(refreshProductionState)
       .catch((error) => showToast(String(error))),
   );
-  $("render-captions").addEventListener("change", () => {
+  function updateCaptionLanguageControls() {
     $("caption-source-language").disabled = !$("render-captions").checked;
-  });
+    $("caption-target-language").disabled = !$("render-captions").checked;
+    const portugueseOption = $("caption-target-language").querySelector(
+      'option[value="pt"]',
+    );
+    portugueseOption.disabled = $("caption-source-language").value === "en";
+    if (
+      portugueseOption.disabled &&
+      $("caption-target-language").value === "pt"
+    )
+      $("caption-target-language").value = "en";
+  }
+  $("render-captions").addEventListener(
+    "change",
+    updateCaptionLanguageControls,
+  );
+  $("caption-source-language").addEventListener(
+    "change",
+    updateCaptionLanguageControls,
+  );
   $("render-retry").addEventListener("click", () =>
     invokeTauriCommand("retry_production")
       .then(refreshProductionState)

@@ -29,8 +29,8 @@ class CaptionProfile:
             r"auto|[a-z]{2,3}", profile.source_language
         ):
             raise ValueError("Indica auto ou um código de língua de origem.")
-        if profile.target_language != "en":
-            raise ValueError("Este provider de legendas suporta saída em inglês (en).")
+        if profile.target_language not in ("en", "pt"):
+            raise ValueError("Escolhe inglês (en) ou português (pt) para as legendas.")
         if (
             not isinstance(profile.model, str)
             or profile.model not in MULTILINGUAL_MODELS

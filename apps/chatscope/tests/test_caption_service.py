@@ -29,7 +29,7 @@ class CaptionContracts(unittest.TestCase):
 
     def test_wrong_targets_and_models_that_cannot_translate_are_rejected(self):
         for profile in (
-            {"targetLanguage": "pt"},
+            {"targetLanguage": "fr"},
             {"model": "turbo"},
             {"model": "small.en"},
             {"sourceLanguage": "English"},
@@ -143,6 +143,82 @@ class CaptionContracts(unittest.TestCase):
             "pipeline.caption_service.run_media_command"
         ), self.assertRaises(ValueError):
             CaptionService(WrongProvider()).generate("source.mp4", 0, 5, folder)
+
+    def test_portuguese_output_transcribes_portuguese_instead_of_translating_to_english(
+        self,
+    ):
+        model = SimpleNamespace(
+            transcribe=lambda *args, **kwargs: (
+                iter([SimpleNamespace(start=0, end=2, text="Bom dia.")]),
+                SimpleNamespace(language="pt"),
+            )
+        )
+        with patch(
+            "pipeline.speech_transcriber.load_whisper_model", return_value=model
+        ), patch.object(model, "transcribe", wraps=model.transcribe) as call:
+            result = WhisperTranscriber().transcribe(
+                "audio.wav", CaptionProfile(source_language="pt", target_language="pt")
+            )
+        self.assertEqual(call.call_args.kwargs["task"], "transcribe")
+        self.assertEqual(result.language, "pt")
+
+    def test_english_to_portuguese_is_not_silently_claimed_without_a_provider(self):
+        class EnglishProvider:
+            def transcribe(self, source, profile):
+                return TimedTranscript(
+                    "en",
+                    "en",
+                    (SubtitleCue(0, 2, "Good morning."),),
+                    "fixture",
+                    "fixture",
+                    "transcribe",
+                )
+
+        with TemporaryDirectory() as folder, patch(
+            "pipeline.caption_service.run_media_command"
+        ), self.assertRaisesRegex(ValueError, "ainda sem provider"):
+            CaptionService(EnglishProvider()).generate(
+                "source.mp4", 0, 5, folder, {"targetLanguage": "pt"}
+            )
+
+    def test_future_translation_adapter_can_be_injected_without_changing_the_renderer(
+        self,
+    ):
+        from pipeline.transcript_translation import TranscriptTranslator
+
+        class EnglishProvider:
+            def transcribe(self, source, profile):
+                return TimedTranscript(
+                    "en",
+                    "en",
+                    (SubtitleCue(0, 2, "Good morning."),),
+                    "fixture",
+                    "fixture",
+                    "transcribe",
+                )
+
+        class FixtureTranslator(TranscriptTranslator):
+            def supports(self, source_language, target_language):
+                return (source_language, target_language) == ("en", "pt")
+
+            def translate(self, transcript, target_language):
+                return TimedTranscript(
+                    transcript.source_language,
+                    target_language,
+                    (SubtitleCue(0, 2, "Bom dia."),),
+                    "fixture-translator",
+                    "fixture",
+                    "translate",
+                )
+
+        with TemporaryDirectory() as folder, patch(
+            "pipeline.caption_service.run_media_command"
+        ):
+            result = CaptionService(
+                EnglishProvider(), translators=(FixtureTranslator(),)
+            ).generate("source.mp4", 0, 5, folder, {"targetLanguage": "pt"})
+            self.assertEqual(result["language"], "pt")
+            self.assertEqual(result["provider"], "fixture-translator")
 
 
 if __name__ == "__main__":

@@ -79,8 +79,8 @@ história ou qualidade. Nunca se fabricam candidatos para preencher o máximo.
 Selecionar um momento preenche o corte, que pode ser ajustado. **Criar este MP4**
 usa esse intervalo; **Criar todos os sugeridos** usa os momentos calculados com
 o ClipProfile. `RenderProfile` define formato, enquadramento e legendas.
-As [legendas geradas são em inglês](english-captions.md). `captionProfile` permite
-indicar a língua falada ou deteção automática e o modelo multilingue.
+As [legendas usam inglês por defeito](english-captions.md). `captionProfile` separa
+língua falada e saída EN/PT. PT → EN está implementado; EN → PT aguarda um provider.
 
 Só um lote escreve na pasta de produção de cada vez. Cada clip tem estado
 `queued`, `acquiring`, `rendering`, `ready` ou `error`. O lote pode terminar

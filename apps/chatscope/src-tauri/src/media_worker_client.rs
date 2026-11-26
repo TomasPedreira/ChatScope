@@ -66,6 +66,10 @@ fn prepare_worker_runtime(root: &Path) -> Result<PathBuf, String> {
             include_str!("../../pipeline/video_renderer.py"),
         ),
         ("worker.py", include_str!("../../pipeline/worker.py")),
+        (
+            "transcript_translation.py",
+            include_str!("../../pipeline/transcript_translation.py"),
+        ),
     ];
     use std::hash::{Hash, Hasher};
     let mut hash = std::collections::hash_map::DefaultHasher::new();

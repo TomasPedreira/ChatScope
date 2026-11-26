@@ -24,7 +24,11 @@ def load_whisper_model(model_name):
 class WhisperTranscriber(Transcriber):
     def transcribe(self, audio_path, profile):
         # language describes speech input; task=translate requests English output.
-        task = "transcribe" if profile.source_language == "en" else "translate"
+        task = (
+            "translate"
+            if profile.target_language == "en" and profile.source_language != "en"
+            else "transcribe"
+        )
         segments, info = load_whisper_model(profile.model).transcribe(
             str(audio_path),
             language=(
@@ -35,7 +39,7 @@ class WhisperTranscriber(Transcriber):
         )
         return TimedTranscript(
             source_language=info.language,
-            language=profile.target_language,
+            language="en" if task == "translate" else info.language,
             segments=tuple(
                 SubtitleCue(segment.start, segment.end, segment.text)
                 for segment in segments

@@ -55,8 +55,9 @@ def normalize_cues(segments, duration_seconds):
 
 
 class CaptionService:
-    def __init__(self, transcriber=None):
+    def __init__(self, transcriber=None, translators=()):
         self.transcriber = transcriber or WhisperTranscriber()
+        self.translators = tuple(translators)
 
     def generate(self, source_path, start_seconds, end_seconds, folder, profile=None):
         profile = CaptionProfile.from_dict({} if profile is None else profile)
@@ -85,6 +86,20 @@ class CaptionService:
             ]
         )
         transcript = self.transcriber.transcribe(speech_path, profile)
+        if transcript.language != profile.target_language:
+            translator = next(
+                (
+                    provider
+                    for provider in self.translators
+                    if provider.supports(transcript.language, profile.target_language)
+                ),
+                None,
+            )
+            if translator is None:
+                raise ValueError(
+                    f"Tradução {transcript.language} → {profile.target_language} ainda sem provider. Para já, tradução PT → EN e transcrição PT/EN estão disponíveis."
+                )
+            transcript = translator.translate(transcript, profile.target_language)
         if transcript.language != profile.target_language:
             raise ValueError(
                 "O provider devolveu legendas numa língua diferente da pedida."

@@ -64,8 +64,9 @@
       <div class="render-controls">
         <label>Formato <select id="render-aspect"><option>9:16</option><option>16:9</option><option>1:1</option></select></label>
         <label>Imagem <select id="render-fit"><option value="pad">Preservar tudo</option><option value="crop">Recorte central</option></select></label>
-        <label><input id="render-captions" type="checkbox"> Legendas em inglês</label>
-        <label title="A língua falada é detetada automaticamente; as legendas de saída são sempre em inglês.">Áudio <select id="caption-source-language" disabled><option value="auto">Detetar língua</option><option value="en">English</option><option value="pt">Português</option><option value="es">Español</option><option value="fr">Français</option><option value="de">Deutsch</option><option value="it">Italiano</option><option value="ja">日本語</option></select></label>
+        <label><input id="render-captions" type="checkbox"> Legendas</label>
+        <label>Áudio <select id="caption-source-language" disabled><option value="auto">Detetar língua</option><option value="pt">Português</option><option value="en">English</option></select></label>
+        <label title="PT → EN disponível. Português mantém fala PT; tradução EN → PT ainda não está ativa.">Saída <select id="caption-target-language" disabled><option value="en">English</option><option value="pt">Português (áudio PT)</option></select></label>
         <label>Tema <input id="render-topic" value="geral" maxlength="48" pattern="[a-zA-Z0-9_-]+"></label>
         <button id="open-output" type="button">Pasta dos clips ↗</button>
       </div>

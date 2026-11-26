@@ -1,18 +1,19 @@
-# English captions and clip titles
+# Caption languages: PT → EN first
 
-The clipping workflow produces proposed titles and generated subtitles in English,
-including when the original speech is in another supported language. The app UI
-can remain Portuguese.
+Proposed clip titles are English. Generated subtitles default to English; the
+profile can represent English or Portuguese output. The implementation priority
+is PT → EN. PT speech can also keep Portuguese captions. EN → PT is prepared as
+an extension point and has no active translation provider yet.
 
 ```mermaid
 flowchart LR
   M[Local master from any MediaSource] --> C[CaptionService: bounded audio]
   P[CaptionProfile: source / target / model] --> C
   C --> W[Transcriber adapter]
-  W --> T[TimedTranscript in English]
+  W --> T[TimedTranscript: actual output language]
   T --> S[SRT + JSON provenance]
   S --> R[FFmpegRenderer]
-  R --> V[MP4 with English captions]
+  R --> V[Captioned MP4]
 ```
 
 `caption_models.py` contains `CaptionProfile`, `SubtitleCue` and `TimedTranscript`.
@@ -22,6 +23,9 @@ timing validation, readable line lengths and subtitle artifacts. The renderer
 accepts an injected service; the service accepts an injected provider. A future
 provider can combine ASR and a separate text translator while returning the same
 `TimedTranscript`, without changing the renderer or source adapters.
+`transcript_translation.py` defines `TranscriptTranslator.supports(source, target)`
+and `translate(transcript, target)`. The service accepts these adapters through
+dependency injection; no EN → PT implementation or external service is configured.
 
 ## Current backend and configuration
 
@@ -43,13 +47,18 @@ explicitly identifies Portuguese input. Explicit English input uses
 
 Older requests with only `captions: true` receive these English defaults. Rust
 omits the default nested profile when serializing, preserving the old JSON shape.
-The UI labels the option **Legendas em inglês** and supports detection or an
-explicit speech language.
+The UI has **Legendas**, audio detection/PT/EN and an English/Portuguese output
+choice. Portuguese is labelled for PT audio; selecting English input disables
+that unsupported EN → PT direction.
 
-The initial target is `en`; other targets fail explicitly. The model defaults to
+Targets are `en` and `pt`; other targets fail validation. Whisper translates into
+English or transcribes the original speech. Its result records the actual text
+language. If Portuguese output needs an unavailable translator, the service fails
+explicitly instead of labelling English text as Portuguese. The model defaults to
 multilingual `small`; `tiny`, `base`, `medium` and `large-v3` are also accepted.
 English-only `.en` models and `turbo` are rejected for this translation workflow.
-Another output language needs a capable provider and corresponding validation/UI.
+Additional translation directions need a capable adapter. Only the requested
+model is downloaded, and the current setup caches multilingual `small`.
 
 Install with `Setup-Media.ps1 -Captions`. Model weights are downloaded once and
 cached locally; inference runs on the local CPU. Optional requirements constrain
@@ -75,8 +84,10 @@ and overlapping speakers; human review is still needed.
 
 Titles in the daily review are currently editorial metadata prepared by the
 workflow, not an automatic app title generator. Keep them in English. A future
-`TitleGenerator` should consume the English `TimedTranscript` and return an
-English title with provenance, independently of rendering and source adapters.
+`TitleGenerator` should consume a `TimedTranscript` plus an explicit
+`titleLanguage="en"`, independently of the caption target. A Portuguese
+transcript may need translation before drafting an English title. Keep title
+generation separate from rendering and source adapters.
 
 Timed source subtitles/transcripts used to **select moments** remain separate
 work in [issue #3](https://github.com/TomasPedreira/ChatScope/issues/3). English
