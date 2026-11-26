@@ -43,6 +43,11 @@ try{
   await page.locator('#render-start').fill('2');await page.locator('#render-end').fill('7');await page.locator('#render-selection').click();
   const call=await page.evaluate(()=>window.kickCalls.find(c=>c.name==='create_clips'));
   assert.equal(call.args.start,'2');assert.equal(call.args.end,'7');assert.equal(call.args.renderProfile.aspect,'9:16');
+  assert.equal(call.args.renderProfile.captionProfile.targetLanguage,'en');
+  assert.equal(await page.locator('#caption-source-language').isDisabled(),true);
+  await page.locator('#render-captions').check();await page.locator('#caption-source-language').selectOption('pt');await page.locator('#render-selection').click();
+  const captionCall=await page.evaluate(()=>window.kickCalls.filter(c=>c.name==='create_clips').at(-1));
+  assert.equal(captionCall.args.renderProfile.captions,true);assert.equal(captionCall.args.renderProfile.captionProfile.sourceLanguage,'pt');assert.equal(captionCall.args.renderProfile.captionProfile.targetLanguage,'en');
   await page.evaluate(()=>window.kickScenario='connecting');await page.locator('#start').click();
   await page.waitForFunction(()=>!document.getElementById('stop').classList.contains('hidden'));
   assert(await page.locator('#video-panel').isVisible());assert(await page.locator('#twitch-panel').isHidden());

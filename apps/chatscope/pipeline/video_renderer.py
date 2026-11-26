@@ -24,6 +24,9 @@ class Renderer(ABC):
 
 
 class FFmpegRenderer(Renderer):
+    def __init__(self, caption_service=None):
+        self.caption_service = caption_service
+
     def render(
         self,
         source_path,
@@ -56,12 +59,25 @@ class FFmpegRenderer(Renderer):
             filters = f"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height}"
         filters += ",setsar=1"
         output_path = Path(output_path).resolve()
+        caption_metadata = None
         if render_profile.get("captions"):
-            from .speech_transcriber import WhisperTranscriber
+            from .caption_service import CaptionService
 
-            if WhisperTranscriber().captions(
-                source_path, clip_start_seconds, clip_end_seconds, output_path.parent
-            ):
+            if source_metadata["audio"]:
+                caption_metadata = (self.caption_service or CaptionService()).generate(
+                    source_path,
+                    clip_start_seconds,
+                    clip_end_seconds,
+                    output_path.parent,
+                    render_profile.get("captionProfile", {}),
+                )
+            else:
+                caption_metadata = {
+                    "status": "no_audio",
+                    "language": "en",
+                    "cueCount": 0,
+                }
+            if caption_metadata["status"] == "ready":
                 filters += ",subtitles=captions.srt"
         audio = (
             ["-af", "loudnorm=I=-16:TP=-2:LRA=7"] if source_metadata["audio"] else []
@@ -117,4 +133,6 @@ class FFmpegRenderer(Renderer):
             raise ValueError(
                 "O MP4 produzido não corresponde ao perfil e à duração pedidos."
             )
+        if caption_metadata is not None:
+            rendered_metadata["captions"] = caption_metadata
         return rendered_metadata

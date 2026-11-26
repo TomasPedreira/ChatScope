@@ -145,9 +145,10 @@ class LocalProduction(unittest.TestCase):
         silent = self.folder / "silent.mp4"
         synthetic(silent, audio=False)
         info = FFmpegRenderer().render(
-            silent, self.folder / "silent-draft.mp4", 0, 5, {"aspect": "9:16"}
+            silent, self.folder / "silent-draft.mp4", 0, 5, {"aspect": "9:16", "captions": True}
         )
         self.assertFalse(info["audio"])
+        self.assertEqual(info["captions"]["status"], "no_audio")
 
     def test_batch_preserves_success_when_another_clip_fails(self):
         root = self.folder / "production"
@@ -200,9 +201,14 @@ class LocalProduction(unittest.TestCase):
         folder.mkdir()
 
         class Speech:
-            def transcribe(self, source, vad_filter):
+            def transcribe(self, source, **options):
+                assert options == {
+                    "language": None,
+                    "task": "translate",
+                    "vad_filter": True,
+                }
                 return iter(
-                    [SimpleNamespace(start=-0.1, end=8, text="É um teste de legendas")]
+                    [SimpleNamespace(start=-0.1, end=8, text="This is a caption test.")]
                 ), SimpleNamespace(language="pt")
 
         with patch(
@@ -218,13 +224,19 @@ class LocalProduction(unittest.TestCase):
         self.assertAlmostEqual(info["duration"], 5, delta=0.15)
         captions = (folder / "captions.srt").read_text(encoding="utf-8")
         self.assertIn("00:00:00,000 --> 00:00:05,000", captions)
-        self.assertIn("É um teste", captions)
+        self.assertIn("This is a caption test.", captions)
         self.assertEqual(
             json.loads((folder / "transcript.json").read_text(encoding="utf-8"))[
                 "language"
             ],
-            "pt",
+            "en",
         )
+        transcript = json.loads(
+            (folder / "transcript.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(transcript["sourceLanguage"], "pt")
+        self.assertEqual(info["captions"]["language"], "en")
+        self.assertEqual(info["captions"]["task"], "translate")
 
 
 if __name__ == "__main__":

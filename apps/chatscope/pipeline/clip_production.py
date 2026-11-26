@@ -127,6 +127,8 @@ def render_clip_batch(request):
                         rendered_metadata["height"],
                     ],
                 )
+                if "captions" in rendered_metadata:
+                    clip["captions"] = rendered_metadata["captions"]
             except Exception as error:
                 clip.update(status="error", error=str(error)[:1800])
             save_production_manifest(job_folder, output_root, manifest)

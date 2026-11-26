@@ -9,7 +9,7 @@ if (!(Test-Path -LiteralPath $python)) {
 & $python -m pip install -r (Join-Path $PSScriptRoot 'requirements-media.txt')
 if ($LASTEXITCODE -ne 0) { throw 'A instalação das ferramentas de vídeo falhou.' }
 if ($Captions) {
-    & $python -m pip install 'faster-whisper>=1.2,<2'
+    & $python -m pip install -r (Join-Path $PSScriptRoot 'requirements-captions.txt')
     if ($LASTEXITCODE -ne 0) { throw 'A instalação das legendas falhou.' }
 }
 & $python -c 'from imageio_ffmpeg import get_ffmpeg_exe; print(get_ffmpeg_exe())'

@@ -1,6 +1,7 @@
 """Validate shared request profiles and public replay data at the worker boundary."""
 
 import math
+from .caption_models import CaptionProfile
 
 
 def validate_clip_profile(profile):
@@ -22,12 +23,13 @@ def validate_clip_profile(profile):
 
 def validate_render_profile(profile):
     if (
-        set(profile) - {"aspect", "fit", "captions"}
+        set(profile) - {"aspect", "fit", "captions", "captionProfile"}
         or profile.get("aspect", "9:16") not in ("9:16", "16:9", "1:1")
         or profile.get("fit", "pad") not in ("pad", "crop")
         or not isinstance(profile.get("captions", False), bool)
     ):
         raise ValueError("Perfil de rendering inválido.")
+    CaptionProfile.from_dict(profile.get("captionProfile", {}))
 
 
 def validate_heatmap_points(points, duration):

@@ -4,6 +4,8 @@ Trabalhar todos os dias em que o PC e o ambiente local estiverem disponíveis, e
 
 ## Entrega e autorização
 
+- Escrever títulos propostos e legendas geradas em inglês, mesmo quando a fala está noutra língua. Separar a língua de origem da língua de saída; ver [English captions](english-captions.md).
+
 - Analisar, selecionar e editar os clips, guardando os MP4 em `media/daily/YYYY-MM-DD/clips/TEMA/`.
 - Guardar `review.md` na pasta diária, com links para os ficheiros locais, título proposto, origem, duração e motivo de seleção.
 - O utilizador revê os ficheiros e pode fazer o upload manualmente ou pedir depois o upload de clips identificados.

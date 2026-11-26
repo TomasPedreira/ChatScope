@@ -1,74 +1,46 @@
-"""Optional speech transcription is independent of source and rendering."""
+"""Speech recognition/translation adapter; no extraction, subtitle files or rendering."""
 
 from abc import ABC, abstractmethod
 from functools import lru_cache
 
-from .media_tools import resolve_ffmpeg_executable, run_media_command
+from .caption_models import CaptionProfile, SubtitleCue, TimedTranscript
 
 
 class Transcriber(ABC):
     @abstractmethod
-    def captions(self, source, start, end, folder):
-        pass
+    def transcribe(self, audio_path, profile: CaptionProfile) -> TimedTranscript:
+        """Return target-language timed text, retaining the detected source language."""
 
 
-@lru_cache(maxsize=1)
-def load_whisper_model():
+@lru_cache(maxsize=2)
+def load_whisper_model(model_name):
     try:
         from faster_whisper import WhisperModel
     except ImportError as error:
         raise ValueError("As legendas exigem Setup-Media.ps1 -Captions.") from error
-    return WhisperModel("small", device="cpu", compute_type="int8")
+    return WhisperModel(model_name, device="cpu", compute_type="int8", cpu_threads=4)
 
 
 class WhisperTranscriber(Transcriber):
-    def captions(self, source, start, end, folder):
-        transcriber = load_whisper_model()
-        speech = folder / "speech.wav"
-        run_media_command(
-            [
-                resolve_ffmpeg_executable(),
-                "-v",
-                "error",
-                "-nostdin",
-                "-n",
-                "-ss",
-                str(start),
-                "-i",
-                str(source),
-                "-t",
-                str(end - start),
-                "-vn",
-                "-ar",
-                "16000",
-                "-ac",
-                "1",
-                str(speech),
-            ]
-        )
-        segments, info = transcriber.transcribe(str(speech), vad_filter=True)
-        cues = []
-        transcript = []
-        for segment in segments:
-            begin, finish = max(0, segment.start), min(segment.end, end - start)
-            text = segment.text.strip().replace("-->", "→").replace("\n", " ")
-            if text and begin < finish:
-                cues.append(
-                    f"{len(cues) + 1}\n{format_subtitle_timestamp(begin)} --> {format_subtitle_timestamp(finish)}\n{text}\n"
-                )
-                transcript.append({"start": begin, "end": finish, "text": text})
-        (folder / "captions.srt").write_text("\n".join(cues), encoding="utf-8")
-        import json
-
-        (folder / "transcript.json").write_text(
-            json.dumps(
-                {"language": info.language, "segments": transcript}, ensure_ascii=False
+    def transcribe(self, audio_path, profile):
+        # language describes speech input; task=translate requests English output.
+        task = "transcribe" if profile.source_language == "en" else "translate"
+        segments, info = load_whisper_model(profile.model).transcribe(
+            str(audio_path),
+            language=(
+                None if profile.source_language == "auto" else profile.source_language
             ),
-            encoding="utf-8",
+            task=task,
+            vad_filter=True,
         )
-        return bool(cues)
-
-
-def format_subtitle_timestamp(seconds):
-    ms = round(seconds * 1000)
-    return f"{ms//3600000:02}:{ms//60000%60:02}:{ms//1000%60:02},{ms%1000:03}"
+        return TimedTranscript(
+            source_language=info.language,
+            language=profile.target_language,
+            segments=tuple(
+                SubtitleCue(segment.start, segment.end, segment.text)
+                for segment in segments
+            ),
+            provider="faster-whisper",
+            model=profile.model,
+            task=task,
+        )

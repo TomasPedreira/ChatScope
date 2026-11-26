@@ -14,6 +14,14 @@ fn prepare_worker_runtime(root: &Path) -> Result<PathBuf, String> {
     let files = [
         ("__init__.py", include_str!("../../pipeline/__init__.py")),
         (
+            "caption_models.py",
+            include_str!("../../pipeline/caption_models.py"),
+        ),
+        (
+            "caption_service.py",
+            include_str!("../../pipeline/caption_service.py"),
+        ),
+        (
             "audio_signals.py",
             include_str!("../../pipeline/audio_signals.py"),
         ),

@@ -42,8 +42,9 @@ flowchart TB
 - `pipeline/audio_signals.py`: energia RMS do áudio por segundo, normalizada em dB.
 - `pipeline/video_renderer.py`: `Renderer` / `FFmpegRenderer`, 1080×1920, 1920×1080 ou
   1080×1080, preservar imagem ou recorte central, áudio AAC normalizado.
-- `pipeline/speech_transcriber.py`: `Transcriber` / `WhisperTranscriber` opcional, idioma
-  automático, SRT e transcrição; modelo carregado uma vez por lote.
+- `pipeline/speech_transcriber.py`: `Transcriber` / `WhisperTranscriber` opcional;
+  reconhecimento e tradução de fala para inglês. `caption_service.py` mantém
+  extração de áudio, SRT e proveniência; `caption_models.py` mantém os contratos.
 - `pipeline/worker.py` encaminha pedidos; `clip_production.py` mantém os lotes;
   `job_storage.py` e `review_index.py` mantêm manifests e índice local.
 
@@ -78,6 +79,8 @@ história ou qualidade. Nunca se fabricam candidatos para preencher o máximo.
 Selecionar um momento preenche o corte, que pode ser ajustado. **Criar este MP4**
 usa esse intervalo; **Criar todos os sugeridos** usa os momentos calculados com
 o ClipProfile. `RenderProfile` define formato, enquadramento e legendas.
+As [legendas geradas são em inglês](english-captions.md). `captionProfile` permite
+indicar a língua falada ou deteção automática e o modelo multilingue.
 
 Só um lote escreve na pasta de produção de cada vez. Cada clip tem estado
 `queued`, `acquiring`, `rendering`, `ready` ou `error`. O lote pode terminar

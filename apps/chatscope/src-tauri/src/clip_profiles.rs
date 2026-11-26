@@ -135,7 +135,31 @@ mod tests {
         assert_eq!(profile.aspect_ratio, "1:1");
         assert_eq!(profile.framing_mode, "crop");
         assert!(profile.include_captions);
+        assert_eq!(profile.caption_profile.target_language, "en");
         assert_eq!(serde_json::to_value(profile).unwrap(), saved);
+    }
+
+    #[test]
+    fn foreign_caption_profile_round_trips_without_confusing_input_and_output() {
+        let saved = serde_json::json!({"captions":true,"captionProfile":{"sourceLanguage":"pt","targetLanguage":"en","model":"small"}});
+        let profile: RenderProfile = serde_json::from_value(saved).unwrap();
+        profile.validate().unwrap();
+        let encoded = serde_json::to_value(profile).unwrap();
+        assert_eq!(encoded["captionProfile"]["sourceLanguage"], "pt");
+        assert_eq!(encoded["captionProfile"]["targetLanguage"], "en");
+    }
+
+    #[test]
+    fn caption_profile_rejects_unsupported_translation_targets_and_models() {
+        for invalid in [
+            serde_json::json!({"targetLanguage":"de"}),
+            serde_json::json!({"model":"turbo"}),
+            serde_json::json!({"model":"small.en"}),
+            serde_json::json!({"sourceLanguage":"English"}),
+        ] {
+            let profile: CaptionProfile = serde_json::from_value(invalid).unwrap();
+            assert!(profile.validate().is_err());
+        }
     }
 }
 
@@ -148,6 +172,8 @@ pub struct RenderProfile {
     pub framing_mode: String,
     #[serde(rename = "captions")]
     pub include_captions: bool,
+    #[serde(default, skip_serializing_if = "CaptionProfile::is_default")]
+    pub caption_profile: CaptionProfile,
 }
 impl Default for RenderProfile {
     fn default() -> Self {
@@ -155,15 +181,54 @@ impl Default for RenderProfile {
             aspect_ratio: "9:16".into(),
             framing_mode: "pad".into(),
             include_captions: false,
+            caption_profile: CaptionProfile::default(),
         }
     }
 }
 impl RenderProfile {
     pub fn validate(&self) -> Result<(), String> {
+        self.caption_profile.validate()?;
         if !["9:16", "16:9", "1:1"].contains(&self.aspect_ratio.as_str())
             || !["pad", "crop"].contains(&self.framing_mode.as_str())
         {
             return Err("Formato ou enquadramento inválido.".into());
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields, rename_all = "camelCase")]
+pub struct CaptionProfile {
+    pub source_language: String,
+    pub target_language: String,
+    pub model: String,
+}
+impl Default for CaptionProfile {
+    fn default() -> Self {
+        Self {
+            source_language: "auto".into(),
+            target_language: "en".into(),
+            model: "small".into(),
+        }
+    }
+}
+impl CaptionProfile {
+    fn is_default(&self) -> bool {
+        self == &Self::default()
+    }
+    pub fn validate(&self) -> Result<(), String> {
+        if self.source_language != "auto"
+            && (!(2..=3).contains(&self.source_language.len())
+                || !self.source_language.bytes().all(|b| b.is_ascii_lowercase()))
+        {
+            return Err("Indica auto ou um código de língua de origem.".into());
+        }
+        if self.target_language != "en" {
+            return Err("Este provider de legendas suporta saída em inglês (en).".into());
+        }
+        if !["tiny", "base", "small", "medium", "large-v3"].contains(&self.model.as_str()) {
+            return Err("Escolhe um modelo Whisper multilingue com tradução.".into());
         }
         Ok(())
     }

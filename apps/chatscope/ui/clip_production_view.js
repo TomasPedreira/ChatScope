@@ -97,6 +97,11 @@ export function createClipProductionView(getSessionSnapshot) {
             aspect: $("render-aspect").value,
             fit: $("render-fit").value,
             captions: $("render-captions").checked,
+            captionProfile: {
+              sourceLanguage: $("caption-source-language").value,
+              targetLanguage: "en",
+              model: "small",
+            },
           },
           topic: $("render-topic").value,
         });
@@ -111,6 +116,9 @@ export function createClipProductionView(getSessionSnapshot) {
       .then(refreshProductionState)
       .catch((error) => showToast(String(error))),
   );
+  $("render-captions").addEventListener("change", () => {
+    $("caption-source-language").disabled = !$("render-captions").checked;
+  });
   $("render-retry").addEventListener("click", () =>
     invokeTauriCommand("retry_production")
       .then(refreshProductionState)
