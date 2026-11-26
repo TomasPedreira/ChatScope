@@ -1,4 +1,5 @@
 """Bounded, shell-free access to FFmpeg and media metadata."""
+
 import json
 import shutil
 import subprocess
@@ -7,16 +8,19 @@ import os
 from pathlib import Path
 
 
-def ffmpeg():
+def resolve_ffmpeg_executable():
     installed = shutil.which("ffmpeg")
     if installed:
         return installed
     try:
         from imageio_ffmpeg import get_ffmpeg_exe
+
         vendor = Path(get_ffmpeg_exe())
         # yt-dlp's capability check searches a bare ffmpeg name. imageio uses a
         # versioned filename, so expose a stable name inside this isolated venv.
-        executable = Path(sys.executable).parent / ("ffmpeg.exe" if os.name == "nt" else "ffmpeg")
+        executable = Path(sys.executable).parent / (
+            "ffmpeg.exe" if os.name == "nt" else "ffmpeg"
+        )
         if not executable.exists():
             try:
                 os.link(vendor, executable)
@@ -31,33 +35,61 @@ def ffmpeg():
             os.environ["PATH"] = directory + os.pathsep + os.environ.get("PATH", "")
         return str(executable)
     except ImportError as error:
-        raise ValueError("Executa Setup-Media.ps1 para instalar as ferramentas de vídeo.") from error
+        raise ValueError(
+            "Executa Setup-Media.ps1 para instalar as ferramentas de vídeo."
+        ) from error
 
 
-def run(arguments, timeout=900, **kwargs):
-    result = subprocess.run(arguments, stdin=subprocess.DEVNULL, capture_output=True,
-                            timeout=timeout, creationflags=0x08000000 if __import__('os').name == 'nt' else 0,
-                            **kwargs)
+def run_media_command(arguments, timeout=900, **kwargs):
+    result = subprocess.run(
+        arguments,
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        timeout=timeout,
+        creationflags=0x08000000 if __import__("os").name == "nt" else 0,
+        **kwargs
+    )
     if result.returncode:
         raise ValueError(result.stderr.decode("utf-8", errors="replace")[-1800:])
     return result.stdout
 
 
-def probe(path):
+def probe_video(path):
     if shutil.which("ffprobe"):
-        data = json.loads(run(["ffprobe", "-v", "error", "-show_streams", "-show_format",
-                               "-of", "json", str(path)], timeout=30))
+        data = json.loads(
+            run_media_command(
+                [
+                    "ffprobe",
+                    "-v",
+                    "error",
+                    "-show_streams",
+                    "-show_format",
+                    "-of",
+                    "json",
+                    str(path),
+                ],
+                timeout=30,
+            )
+        )
         video = next((s for s in data["streams"] if s["codec_type"] == "video"), None)
         if not video:
             raise ValueError("O ficheiro não contém vídeo.")
-        return {"width": video["width"], "height": video["height"],
-                "duration": float(data["format"]["duration"]),
-                "audio": any(s["codec_type"] == "audio" for s in data["streams"])}
+        return {
+            "width": video["width"],
+            "height": video["height"],
+            "duration": float(data["format"]["duration"]),
+            "audio": any(s["codec_type"] == "audio" for s in data["streams"]),
+        }
     from imageio_ffmpeg import read_frames
+
     frames = read_frames(str(Path(path).resolve()), pix_fmt="rgb24")
     try:
         meta = next(frames)
-        return {"width": meta["size"][0], "height": meta["size"][1],
-                "duration": meta["duration"], "audio": bool(meta.get("audio_codec"))}
+        return {
+            "width": meta["size"][0],
+            "height": meta["size"][1],
+            "duration": meta["duration"],
+            "audio": bool(meta.get("audio_codec")),
+        }
     finally:
         frames.close()

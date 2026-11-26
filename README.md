@@ -25,3 +25,5 @@ A [recolha em segundo plano](apps/chatscope/study/README.md) e a
 [edição de Shorts](apps/chatscope/study/SHORTS.md) têm instruções próprias.
 As gravações e os resultados ficam em `media/`, e as credenciais pessoais
 ficam no perfil do Windows.
+
+A [arquitetura e convenções de naming](docs/architecture.md) descreve os módulos atuais e onde ficam os candidatos e MP4.

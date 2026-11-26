@@ -4,16 +4,18 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct ClipProfile {
-    pub duration: f64,
-    pub before_peak: f64,
+    #[serde(rename = "duration")]
+    pub duration_seconds: f64,
+    #[serde(rename = "beforePeak")]
+    pub seconds_before_peak: f64,
     pub max_moments: usize,
 }
 
 impl Default for ClipProfile {
     fn default() -> Self {
         Self {
-            duration: 30.0,
-            before_peak: 20.0,
+            duration_seconds: 30.0,
+            seconds_before_peak: 20.0,
             max_moments: 8,
         }
     }
@@ -27,12 +29,12 @@ pub struct TimeRange {
 
 impl ClipProfile {
     pub fn validate(&self) -> Result<(), String> {
-        if !self.duration.is_finite() || !(5.0..=180.0).contains(&self.duration) {
+        if !self.duration_seconds.is_finite() || !(5.0..=180.0).contains(&self.duration_seconds) {
             return Err("A duração pretendida deve estar entre 5 e 180 segundos.".into());
         }
-        if !self.before_peak.is_finite()
-            || self.before_peak < 0.0
-            || self.before_peak > self.duration
+        if !self.seconds_before_peak.is_finite()
+            || self.seconds_before_peak < 0.0
+            || self.seconds_before_peak > self.duration_seconds
         {
             return Err(
                 "O contexto antes do pico deve ficar entre zero e a duração do clip.".into(),
@@ -45,11 +47,13 @@ impl ClipProfile {
     }
 
     /// Shift at the edges instead of silently shortening a requested clip.
-    /// A source/interval shorter than the target can only supply its own duration.
+    /// A source/interval shorter than the target can only supply its own duration_seconds.
     pub fn window(&self, peak: f64, bounds: TimeRange) -> TimeRange {
-        let length = self.duration.min((bounds.end - bounds.start).max(0.0));
-        let start =
-            (peak - self.before_peak).clamp(bounds.start, (bounds.end - length).max(bounds.start));
+        let length = self
+            .duration_seconds
+            .min((bounds.end - bounds.start).max(0.0));
+        let start = (peak - self.seconds_before_peak)
+            .clamp(bounds.start, (bounds.end - length).max(bounds.start));
         TimeRange {
             start,
             end: start + length,
@@ -63,8 +67,8 @@ mod tests {
     #[test]
     fn requested_duration_and_context_are_respected_including_edges() {
         let profile = ClipProfile {
-            duration: 60.0,
-            before_peak: 40.0,
+            duration_seconds: 60.0,
+            seconds_before_peak: 40.0,
             max_moments: 3,
         };
         profile.validate().unwrap();
@@ -91,15 +95,15 @@ mod tests {
     fn invalid_profiles_are_rejected_before_starting_a_session() {
         for profile in [
             ClipProfile {
-                duration: f64::NAN,
+                duration_seconds: f64::NAN,
                 ..Default::default()
             },
             ClipProfile {
-                duration: 4.0,
+                duration_seconds: 4.0,
                 ..Default::default()
             },
             ClipProfile {
-                before_peak: 31.0,
+                seconds_before_peak: 31.0,
                 ..Default::default()
             },
             ClipProfile {
@@ -113,5 +117,54 @@ mod tests {
         ] {
             assert!(profile.validate().is_err());
         }
+    }
+
+    #[test]
+    fn saved_clip_profile_keeps_legacy_json_keys() {
+        let saved = serde_json::json!({"duration":45.0,"beforePeak":15.0,"maxMoments":3});
+        let profile: ClipProfile = serde_json::from_value(saved.clone()).unwrap();
+        assert_eq!(profile.duration_seconds, 45.0);
+        assert_eq!(profile.seconds_before_peak, 15.0);
+        assert_eq!(serde_json::to_value(profile).unwrap(), saved);
+    }
+
+    #[test]
+    fn saved_render_profile_keeps_legacy_json_keys() {
+        let saved = serde_json::json!({"aspect":"1:1","fit":"crop","captions":true});
+        let profile: RenderProfile = serde_json::from_value(saved.clone()).unwrap();
+        assert_eq!(profile.aspect_ratio, "1:1");
+        assert_eq!(profile.framing_mode, "crop");
+        assert!(profile.include_captions);
+        assert_eq!(serde_json::to_value(profile).unwrap(), saved);
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields, rename_all = "camelCase")]
+pub struct RenderProfile {
+    #[serde(rename = "aspect")]
+    pub aspect_ratio: String,
+    #[serde(rename = "fit")]
+    pub framing_mode: String,
+    #[serde(rename = "captions")]
+    pub include_captions: bool,
+}
+impl Default for RenderProfile {
+    fn default() -> Self {
+        Self {
+            aspect_ratio: "9:16".into(),
+            framing_mode: "pad".into(),
+            include_captions: false,
+        }
+    }
+}
+impl RenderProfile {
+    pub fn validate(&self) -> Result<(), String> {
+        if !["9:16", "16:9", "1:1"].contains(&self.aspect_ratio.as_str())
+            || !["pad", "crop"].contains(&self.framing_mode.as_str())
+        {
+            return Err("Formato ou enquadramento inválido.".into());
+        }
+        Ok(())
     }
 }

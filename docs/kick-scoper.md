@@ -1,7 +1,6 @@
 # Kick scoper
 
-Integração isolada na branch `kick_scoper`, sobre a base comum de `youtube_scoper`.
-Ambos os pull requests destinam-se a main; o da base deve ser integrado primeiro.
+A integração Kick já foi integrada em main pelos PRs #1 e #2. O refactor de naming e responsabilidades continua na branch `kick_scoper`, num novo PR para main.
 
 Executar `apps/chatscope/Setup-Kick.ps1` uma vez. Reutiliza o ambiente existente,
 prepara as ferramentas comuns e instala curl-cffi, usado pelo extractor Kick do

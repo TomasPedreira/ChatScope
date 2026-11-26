@@ -1,16 +1,16 @@
 //! Public replay signals are optional. Missing data is not a network/extractor failure.
 #[cfg(test)]
-use crate::scope::Source;
+use crate::domain_models::MediaSource;
 #[cfg(test)]
 use crate::{
-    clips::{ClipProfile, TimeRange},
-    detectors::{HeatmapDetector, MomentDetector},
+    clip_profiles::{ClipProfile, TimeRange},
+    moment_detectors::{HeatmapDetector, MomentDetector},
 };
 #[cfg(test)]
 use serde::Deserialize;
 
 #[cfg(test)]
-pub use crate::scope::SignalPoint as HeatPoint;
+pub use crate::domain_models::SignalPoint as HeatPoint;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -25,25 +25,14 @@ pub struct VideoInfo {
     extractor_version: String,
 }
 
-pub use crate::scope::VideoAnalysis as Analysis;
-
-pub fn export_document(
-    source: &crate::scope::Source,
-    analysis: &Analysis,
-    status: &str,
-) -> serde_json::Value {
-    serde_json::json!({"schemaVersion":2,"provider":"youtube",
-        "exportedAt":chrono::Utc::now().to_rfc3339(),"status":status,"source":source,
-        "signal":analysis.signal,"points":analysis.points,"timeOrigin":analysis.time_origin,"availability":analysis.availability,"clipProfile":analysis.clip_profile,
-        "extractorVersion":analysis.extractor_version,"heatmap":analysis.heatmap,"moments":analysis.moments})
-}
+use crate::domain_models::VideoAnalysis as Analysis;
 
 #[cfg(test)]
 pub fn analyze(
     info: VideoInfo,
     start: Option<f64>,
     end: Option<f64>,
-) -> Result<(Source, Analysis), String> {
+) -> Result<(MediaSource, Analysis), String> {
     analyze_with_profile(info, start, end, &ClipProfile::default())
 }
 
@@ -53,7 +42,7 @@ pub fn analyze_with_profile(
     start: Option<f64>,
     end: Option<f64>,
     profile: &ClipProfile,
-) -> Result<(Source, Analysis), String> {
+) -> Result<(MediaSource, Analysis), String> {
     profile.validate()?;
     if !info.duration.is_finite()
         || info.duration <= 0.0
@@ -71,7 +60,7 @@ pub fn analyze_with_profile(
     {
         return Err("O intervalo tem de ficar dentro da duração do vídeo.".into());
     }
-    let source = Source {
+    let source = MediaSource {
         url: format!("https://www.youtube.com/watch?v={}", info.id),
         kind: "youtube".into(),
         id: info.id,
@@ -108,7 +97,8 @@ pub fn analyze_with_profile(
         point.start_time = point.start_time.max(start);
         point.end_time = point.end_time.min(end);
     }
-    let moments = HeatmapDetector.detect(heatmap.as_slice(), TimeRange { start, end }, profile);
+    let clip_candidates =
+        HeatmapDetector.detect(heatmap.as_slice(), TimeRange { start, end }, profile);
     Ok((
         source,
         Analysis {
@@ -116,7 +106,7 @@ pub fn analyze_with_profile(
             signal: "youtube_heatmap".into(),
             time_origin: "source".into(),
             local_media: None,
-            media_origin: 0.0,
+            master_source_offset_seconds: 0.0,
             clip_profile: profile.clone(),
             availability: if available {
                 "available"
@@ -125,7 +115,7 @@ pub fn analyze_with_profile(
             }
             .into(),
             heatmap,
-            moments,
+            clip_candidates,
             extractor_version: info.extractor_version,
         },
     ))
@@ -160,10 +150,10 @@ mod tests {
         video.heatmap = None;
         let (_, analysis) = analyze(video, None, None).unwrap();
         assert_eq!(analysis.availability, "unavailable");
-        assert!(analysis.moments.is_empty());
+        assert!(analysis.clip_candidates.is_empty());
         let (_, analysis) = analyze(info(&[0.5; 10]), None, None).unwrap();
         assert_eq!(analysis.availability, "available");
-        assert!(analysis.moments.is_empty());
+        assert!(analysis.clip_candidates.is_empty());
     }
     #[test]
     fn plateau_is_one_peak_and_candidates_are_ranked_non_overlapping_and_bounded() {
@@ -173,10 +163,10 @@ mod tests {
             None,
         )
         .unwrap();
-        assert_eq!(analysis.moments.len(), 2);
-        assert_eq!(analysis.moments[0].peak, 75.0);
-        assert_eq!(analysis.moments[1].peak, 30.0);
-        for point in &analysis.moments {
+        assert_eq!(analysis.clip_candidates.len(), 2);
+        assert_eq!(analysis.clip_candidates[0].peak, 75.0);
+        assert_eq!(analysis.clip_candidates[1].peak, 30.0);
+        for point in &analysis.clip_candidates {
             assert!(point.start >= 0.0 && point.end <= 100.0);
         }
     }
@@ -187,7 +177,7 @@ mod tests {
         assert_eq!(analysis.heatmap[0].start_time, 20.0);
         assert!(
             analysis
-                .moments
+                .clip_candidates
                 .iter()
                 .all(|point| point.start >= 20.0 && point.end <= 45.0)
         );
@@ -198,7 +188,8 @@ mod tests {
     #[test]
     fn exported_csv_keeps_timestamps_and_neutralizes_titles() {
         let (source, analysis) = analyze(info(&[0.1, 0.1, 0.9, 0.1]), None, None).unwrap();
-        let csv = crate::scope::export_moments_csv(&source, &analysis.moments);
+        let csv =
+            crate::session_exports::export_clip_candidates_csv(&source, &analysis.clip_candidates);
         assert!(csv.contains("'=unsafe title"));
         assert!(csv.contains("youtube_heatmap"));
         assert!(csv.contains("&t=5s"));
@@ -210,14 +201,14 @@ mod tests {
         let (source, analysis) = analyze(video, None, None).unwrap();
         assert_eq!(source.duration, Some(597.0));
         assert_eq!(analysis.heatmap.len(), 100);
-        assert!(!analysis.moments.is_empty());
+        assert!(!analysis.clip_candidates.is_empty());
         assert!(
             analysis
-                .moments
+                .clip_candidates
                 .windows(2)
                 .all(|pair| pair[0].strength >= pair[1].strength)
         );
-        for (index, moment) in analysis.moments.iter().enumerate() {
+        for (index, moment) in analysis.clip_candidates.iter().enumerate() {
             assert!(
                 moment.start >= 0.0
                     && moment.start <= moment.peak
@@ -225,7 +216,7 @@ mod tests {
                     && moment.end <= 597.0
             );
             assert!(
-                analysis.moments[index + 1..]
+                analysis.clip_candidates[index + 1..]
                     .iter()
                     .all(|other| moment.end <= other.start || moment.start >= other.end)
             );

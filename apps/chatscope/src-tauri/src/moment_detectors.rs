@@ -1,11 +1,11 @@
 //! Detectors consume normalized signals, independent of the acquisition transport.
 use crate::{
-    clips::{ClipProfile, TimeRange},
-    scope::{Moment, SignalPoint},
+    clip_profiles::{ClipProfile, TimeRange},
+    domain_models::{ClipCandidate, SignalPoint},
 };
 
 pub trait MomentDetector<T: ?Sized> {
-    fn detect(&self, input: &T, bounds: TimeRange, profile: &ClipProfile) -> Vec<Moment>;
+    fn detect(&self, input: &T, bounds: TimeRange, profile: &ClipProfile) -> Vec<ClipCandidate>;
 }
 pub struct HeatmapDetector;
 pub struct AudioEnergyDetector;
@@ -15,13 +15,13 @@ impl MomentDetector<[SignalPoint]> for AudioEnergyDetector {
         input: &[SignalPoint],
         bounds: TimeRange,
         profile: &ClipProfile,
-    ) -> Vec<Moment> {
-        let mut moments = detect_heatmap(input, bounds, profile);
-        for moment in &mut moments {
+    ) -> Vec<ClipCandidate> {
+        let mut clip_candidates = detect_heatmap(input, bounds, profile);
+        for moment in &mut clip_candidates {
             moment.signal = "audio_energy".into();
             moment.reason = "Pico de energia no áudio · confirmar contexto".into();
         }
-        moments
+        clip_candidates
     }
 }
 impl MomentDetector<[SignalPoint]> for HeatmapDetector {
@@ -30,7 +30,7 @@ impl MomentDetector<[SignalPoint]> for HeatmapDetector {
         input: &[SignalPoint],
         bounds: TimeRange,
         profile: &ClipProfile,
-    ) -> Vec<Moment> {
+    ) -> Vec<ClipCandidate> {
         detect_heatmap(input, bounds, profile)
     }
 }
@@ -50,11 +50,11 @@ mod tests {
             })
             .collect();
         let profile = ClipProfile {
-            duration: 40.0,
-            before_peak: 25.0,
+            duration_seconds: 40.0,
+            seconds_before_peak: 25.0,
             max_moments: 2,
         };
-        let moments = HeatmapDetector.detect(
+        let clip_candidates = HeatmapDetector.detect(
             points.as_slice(),
             TimeRange {
                 start: 0.0,
@@ -62,35 +62,35 @@ mod tests {
             },
             &profile,
         );
-        assert_eq!(moments.len(), 2);
+        assert_eq!(clip_candidates.len(), 2);
         assert!(
-            moments
+            clip_candidates
                 .iter()
                 .all(|moment| (moment.end - moment.start - 40.0).abs() < 0.001)
         );
-        assert_eq!(moments[0].peak, 110.0);
+        assert_eq!(clip_candidates[0].peak, 110.0);
     }
 }
 pub struct ChatActivityDetector;
-impl MomentDetector<crate::chat::Analysis> for ChatActivityDetector {
+impl MomentDetector<crate::twitch_chat::Analysis> for ChatActivityDetector {
     fn detect(
         &self,
-        input: &crate::chat::Analysis,
+        input: &crate::twitch_chat::Analysis,
         bounds: TimeRange,
         profile: &ClipProfile,
-    ) -> Vec<Moment> {
-        let mut moments: Vec<Moment> = vec![];
+    ) -> Vec<ClipCandidate> {
+        let mut clip_candidates: Vec<ClipCandidate> = vec![];
         for highlight in &input.highlights {
             let peak = (highlight.end - 5.0)
                 .max(bounds.start)
                 .min((bounds.end - 0.001).max(bounds.start));
             let window = profile.window(peak, bounds);
             if window.end > window.start
-                && moments
+                && clip_candidates
                     .iter()
                     .all(|other| window.end <= other.start || window.start >= other.end)
             {
-                moments.push(Moment {
+                clip_candidates.push(ClipCandidate {
                     start: window.start,
                     end: window.end,
                     peak,
@@ -98,18 +98,22 @@ impl MomentDetector<crate::chat::Analysis> for ChatActivityDetector {
                     signal: "chat_activity".into(),
                     reason: highlight.reason.clone(),
                 });
-                if moments.len() == profile.max_moments {
+                if clip_candidates.len() == profile.max_moments {
                     break;
                 }
             }
         }
-        moments
+        clip_candidates
     }
 }
 
 /// Local maxima above the interval's median; plateau grouping and non-overlap
 /// avoid offering eight copies of one replay spike. Context is a review suggestion.
-fn detect_heatmap(points: &[SignalPoint], bounds: TimeRange, profile: &ClipProfile) -> Vec<Moment> {
+fn detect_heatmap(
+    points: &[SignalPoint],
+    bounds: TimeRange,
+    profile: &ClipProfile,
+) -> Vec<ClipCandidate> {
     if points.is_empty() {
         return vec![];
     }
@@ -141,7 +145,7 @@ fn detect_heatmap(points: &[SignalPoint], bounds: TimeRange, profile: &ClipProfi
         if point.value >= threshold && point.value > left && point.value > right {
             let peak = (point.start_time + points[index].end_time) / 2.0;
             let window = profile.window(peak, bounds);
-            peaks.push(Moment {
+            peaks.push(ClipCandidate {
                 start: window.start,
                 end: window.end,
                 peak,
@@ -160,17 +164,17 @@ fn detect_heatmap(points: &[SignalPoint], bounds: TimeRange, profile: &ClipProfi
             .total_cmp(&a.strength)
             .then(a.peak.total_cmp(&b.peak))
     });
-    let mut moments: Vec<Moment> = vec![];
+    let mut clip_candidates: Vec<ClipCandidate> = vec![];
     for candidate in peaks {
-        if moments
+        if clip_candidates
             .iter()
             .all(|picked| candidate.end <= picked.start || candidate.start >= picked.end)
         {
-            moments.push(candidate);
-            if moments.len() == profile.max_moments {
+            clip_candidates.push(candidate);
+            if clip_candidates.len() == profile.max_moments {
                 break;
             }
         }
     }
-    moments
+    clip_candidates
 }

@@ -18,7 +18,7 @@ const CLIENT_ID: &str = "kd1unb4b3q4t58fwlpcbzcbnm76a8fp";
 const COMMENTS_HASH: &str = "b70a3591ff0f4e0313d126c6a1502d79a1c02baebb288227c582044aa76adf6a";
 pub const MAX_MESSAGES: usize = 250_000;
 
-pub use crate::scope::Source;
+pub use crate::domain_models::MediaSource;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -61,7 +61,7 @@ pub struct Bin {
 }
 
 pub enum Update {
-    Source(Source),
+    MediaSource(MediaSource),
     Messages(Vec<ChatMessage>, f64),
     Status(String, String),
 }
@@ -129,7 +129,7 @@ pub fn parse_time(input: &str) -> Result<f64, String> {
     Ok(total as f64)
 }
 
-pub fn parse_source(input: &str) -> Result<Source, String> {
+pub fn parse_source(input: &str) -> Result<MediaSource, String> {
     let raw = input.trim();
     let normalized = if raw.starts_with("twitch.tv/")
         || raw.starts_with("www.twitch.tv/")
@@ -200,7 +200,7 @@ pub fn parse_source(input: &str) -> Result<Source, String> {
         .map(|(_, v)| parse_time(&v))
         .transpose()?
         .unwrap_or(0.0);
-    Ok(Source {
+    Ok(MediaSource {
         url: normalized,
         kind: kind.into(),
         id,
@@ -271,7 +271,11 @@ pub async fn example_vod() -> Result<Value, String> {
     )
 }
 
-pub async fn resolve(input: &str, start: Option<f64>, end: Option<f64>) -> Result<Source, String> {
+pub async fn resolve(
+    input: &str,
+    start: Option<f64>,
+    end: Option<f64>,
+) -> Result<MediaSource, String> {
     let mut source = parse_source(input)?;
     let http = client()?;
     if source.kind == "live" {
@@ -443,14 +447,14 @@ pub fn parse_irc(line: &str, elapsed: f64) -> Option<ChatMessage> {
 }
 
 pub async fn capture<F>(
-    source: Source,
+    source: MediaSource,
     cancel: Arc<AtomicBool>,
     mut notify: F,
 ) -> Result<(), String>
 where
     F: FnMut(Update) + Send,
 {
-    notify(Update::Source(source.clone()));
+    notify(Update::MediaSource(source.clone()));
     if source.kind == "live" {
         capture_live(&source, cancel, &mut notify).await
     } else {
@@ -459,7 +463,7 @@ where
 }
 
 async fn capture_live<F: FnMut(Update) + Send>(
-    source: &Source,
+    source: &MediaSource,
     cancel: Arc<AtomicBool>,
     notify: &mut F,
 ) -> Result<(), String> {
@@ -557,7 +561,7 @@ async fn capture_live<F: FnMut(Update) + Send>(
 }
 
 async fn capture_vod<F: FnMut(Update) + Send>(
-    source: &Source,
+    source: &MediaSource,
     cancel: Arc<AtomicBool>,
     notify: &mut F,
 ) -> Result<(), String> {

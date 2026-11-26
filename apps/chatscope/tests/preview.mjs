@@ -12,7 +12,7 @@ const fixture = JSON.parse(await readFile(path.join(root, 'tests/fixtures/vod.js
 await mkdir(path.join(root, 'artifacts'), {recursive:true});
 const server = createServer(async (req, res) => {
   try {
-    const file = {'/':'index.html','/style.css':'style.css','/app.js':'app.js','/fonts/InterVariable.woff2':'fonts/InterVariable.woff2'}[req.url];
+    const file = {'/':'index.html','/style.css':'style.css','/app.js':'app.js', '/dom_helpers.js':'dom_helpers.js', '/tauri_client.js':'tauri_client.js', '/clip_production_view.js':'clip_production_view.js','/fonts/InterVariable.woff2':'fonts/InterVariable.woff2'}[req.url];
     if (!file) { res.writeHead(404); return res.end(); }
     res.setHeader('Content-Type', file.endsWith('.css') ? 'text/css' : file.endsWith('.js') ? 'application/javascript' : file.endsWith('.woff2') ? 'font/woff2' : 'text/html');
     res.end(await readFile(path.join(root, 'ui', file)));
