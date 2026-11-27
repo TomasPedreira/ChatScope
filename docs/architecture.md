@@ -120,3 +120,5 @@ A [issue #3](https://github.com/TomasPedreira/ChatScope/issues/3) acompanha
 legendas/transcrições como sinais de deteção, começando por YouTube. É diferente
 de usar Whisper para legendar um clip já selecionado. Os sinais atualmente
 implementados são chat, heatmap e energia de áudio.
+
+Para acompanhar o fluxo completo por plataforma, consultar o [guia da arquitetura e do clipping](guia-arquitetura-e-clipping.md), com diagrama, algoritmos de relevância, perfis, legendas, storage e limites atuais.
