@@ -9,7 +9,7 @@ from unittest.mock import patch
 from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from pipeline.media_sources import MediaSourceRegistry
+from pipeline.media_sources import MediaSourceRegistry, YtDlpSource
 from pipeline.video_renderer import FFmpegRenderer
 from pipeline.caption_service import CaptionService
 from pipeline.caption_styling import CaptionStyler
@@ -62,6 +62,21 @@ def synthetic(path, audio=True):
 
 
 class Boundaries(unittest.TestCase):
+    def test_ffmpeg_applies_network_timeout_to_video_and_audio_inputs(self):
+        from yt_dlp import YoutubeDL
+        from yt_dlp.downloader.external import FFmpegFD
+
+        options = YtDlpSource(
+            "https://www.youtube.com/watch?v=bsTxc6iwPb4", "youtube"
+        ).options()
+        with YoutubeDL(options) as client:
+            downloader = FFmpegFD(client, options)
+            for input_key in ("_i1", "_i2"):
+                self.assertEqual(
+                    downloader._configuration_args((input_key, "_i")),
+                    ["-rw_timeout", "20000000"],
+                )
+
     def test_untrusted_sources_and_profiles_are_rejected(self):
         for url in (
             "https://youtube.com.evil.org/watch?v=YE7VzlLtp-4",

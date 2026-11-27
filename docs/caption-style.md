@@ -44,3 +44,15 @@ EN → PT prepared as a future adapter; appearance does not change language rout
 The optional faster-whisper version is pinned because this alignment adapter uses
 its model alignment API. No additional model weights or translation service are
 needed beyond the existing multilingual model.
+## Native validation — 2026-11-27
+
+- 24 Rust tests, 31 Python tests and the three headless UI suites passed.
+- Eight 60-second clips of the Stable Ronaldo/JasonTheWeen video were produced
+  with English captions and the classic yellow-word style. All eight MP4s passed
+  duration/dimension/hash checks, audio decoding and HTML playback checks.
+- The eight previously approved Marlon/Lacy clips were restyled without another
+  recognition pass; transcript JSON and SRT byte hashes stayed unchanged.
+- A stalled network download exposed that yt-dlp's socket timeout did not reach
+  its FFmpeg downloader. FFmpeg inputs now use a 20-second blocked-I/O timeout,
+  covered for both video and audio. Only the six unfinished cuts were retried;
+  the two completed MP4s were preserved.

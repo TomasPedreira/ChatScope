@@ -61,6 +61,8 @@ class YtDlpSource(MediaSource):
             "no_warnings": True,
             "noplaylist": True,
             "socket_timeout": 15,
+            # yt-dlp's socket timeout does not cover its FFmpeg downloader.
+            "external_downloader_args": {"ffmpeg_i": ["-rw_timeout", "20000000"]},
             "retries": 1,
             "extractor_retries": 1,
             "ffmpeg_location": resolve_ffmpeg_executable(),
