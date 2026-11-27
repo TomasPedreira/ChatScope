@@ -71,11 +71,11 @@ try{
   assert(snapshot.moments.every(moment=>Math.abs(moment.end-moment.start-60)<0.001));
   assert.equal(snapshot.total,0);
   assert.equal(snapshot.canExport,true);
-  await page.waitForFunction(()=>document.querySelectorAll('.youtube-bin').length===100);
-  assert.equal(await page.locator('.youtube-bin').count(),100);
+  await page.waitForFunction(()=>document.querySelectorAll('.video-bin').length===100);
+  assert.equal(await page.locator('.video-bin').count(),100);
   assert.equal(await page.locator('.highlight').count(),snapshot.moments.length);
   await page.locator('.highlight').last().click();
-  assert.equal(await page.locator('#youtube-moment').isVisible(),true);
+  assert.equal(await page.locator('#video-moment').isVisible(),true);
   await page.screenshot({path:path.join(root,'artifacts/youtube-native.png')});
   const rejection=await page.evaluate(async()=>{
     try{await window.__TAURI__.core.invoke('start_capture',{url:'https://youtube.com.evil.org/watch?v=YE7VzlLtp-4',start:null,end:null});return null;}
@@ -103,7 +103,7 @@ try{
     await window.__TAURI__.core.invoke('start_capture',{url:'https://youtu.be/dQw4w9WgXcQ',start:null,end:null});
     await window.__TAURI__.core.invoke('stop_capture');
   });
-  await page.waitForFunction(()=>document.getElementById('youtube-pill').textContent==='PARADO',{},{timeout:10000});
+  await page.waitForFunction(()=>document.getElementById('video-pill').textContent==='PARADO',{},{timeout:10000});
   const stopped=await page.evaluate(()=>window.__TAURI__.core.invoke('get_snapshot'));
   assert.equal(stopped.status,'stopped');
   await delay(1500);

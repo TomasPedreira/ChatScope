@@ -7,7 +7,7 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const server=createServer(async(req,res)=>{
-  const file={'/':'index.html','/app.js':'app.js','/style.css':'style.css','/fonts/InterVariable.woff2':'fonts/InterVariable.woff2'}[req.url];
+  const file={'/':'index.html','/app.js':'app.js', '/dom_helpers.js':'dom_helpers.js', '/tauri_client.js':'tauri_client.js', '/clip_production_view.js':'clip_production_view.js','/style.css':'style.css','/fonts/InterVariable.woff2':'fonts/InterVariable.woff2'}[req.url];
   if(!file){res.writeHead(404);return res.end();}
   res.setHeader('Content-Type',file.endsWith('.js')?'application/javascript':file.endsWith('.css')?'text/css':file.endsWith('.woff2')?'font/woff2':'text/html');
   res.end(await readFile(path.join(root,'ui',file)));
@@ -37,15 +37,23 @@ try{
   await page.locator('#url').fill('https://kick.com/example');
   assert.equal(await page.locator('#start').textContent(),'Analisar Kick');await page.locator('#start').click();
   await page.waitForFunction(()=>document.getElementById('video-heading').textContent.includes('kick'));
-  assert(await page.locator('#youtube-panel').isVisible());assert(await page.locator('#twitch-panel').isHidden());
+  assert(await page.locator('#video-panel').isVisible());assert(await page.locator('#twitch-panel').isHidden());
   assert(await page.locator('#open-youtube').isHidden());assert.equal(await page.locator('#video-signal').textContent(),'Energia do áudio');
   assert.equal(await page.locator('#source-title img').count(),0);
   await page.locator('#render-start').fill('2');await page.locator('#render-end').fill('7');await page.locator('#render-selection').click();
   const call=await page.evaluate(()=>window.kickCalls.find(c=>c.name==='create_clips'));
   assert.equal(call.args.start,'2');assert.equal(call.args.end,'7');assert.equal(call.args.renderProfile.aspect,'9:16');
+  assert.equal(call.args.renderProfile.captionProfile.targetLanguage,'en');
+  assert.equal(await page.locator('#caption-source-language').isDisabled(),true);
+  await page.locator('#render-captions').check();await page.locator('#caption-source-language').selectOption('pt');await page.locator('#render-selection').click();
+  const captionCall=await page.evaluate(()=>window.kickCalls.filter(c=>c.name==='create_clips').at(-1));
+  assert.equal(captionCall.args.renderProfile.captions,true);assert.equal(captionCall.args.renderProfile.captionProfile.sourceLanguage,'pt');assert.equal(captionCall.args.renderProfile.captionProfile.targetLanguage,'en');
+  await page.locator('#caption-target-language').selectOption('pt');await page.locator('#render-selection').click();
+  const portugueseCall=await page.evaluate(()=>window.kickCalls.filter(c=>c.name==='create_clips').at(-1));assert.equal(portugueseCall.args.renderProfile.captionProfile.targetLanguage,'pt');
+  await page.locator('#caption-source-language').selectOption('en');assert.equal(await page.locator('#caption-target-language').inputValue(),'en');
   await page.evaluate(()=>window.kickScenario='connecting');await page.locator('#start').click();
   await page.waitForFunction(()=>!document.getElementById('stop').classList.contains('hidden'));
-  assert(await page.locator('#youtube-panel').isVisible());assert(await page.locator('#twitch-panel').isHidden());
+  assert(await page.locator('#video-panel').isVisible());assert(await page.locator('#twitch-panel').isHidden());
   await page.locator('#stop').click();await page.waitForFunction(()=>!document.getElementById('start').classList.contains('hidden'));
   assert.deepEqual(errors,[]);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   await mkdir(path.join(root,'artifacts'),{recursive:true});await page.screenshot({path:path.join(root,'artifacts/kick-ui.png')});

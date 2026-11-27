@@ -1,8 +1,8 @@
 //! Kick owns URL policy only. Acquisition and rendering use the shared pipeline.
 use crate::{
-    clips::ClipProfile,
-    providers::{Capabilities, CaptureOptions, Preparation, PreparedSource, SourceProvider},
-    scope::Input,
+    clip_profiles::ClipProfile,
+    domain_models::SourceInput,
+    source_providers::{Capabilities, CaptureOptions, Preparation, PreparedSource, SourceProvider},
 };
 use std::sync::{Arc, atomic::AtomicBool};
 use url::Url;
@@ -32,7 +32,7 @@ impl SourceProvider for KickProvider {
     fn accepts(&self, host: &str) -> bool {
         matches!(host, "kick.com" | "www.kick.com")
     }
-    fn normalize(&self, _input: &str, url: &Url) -> Result<Input, String> {
+    fn normalize(&self, _input: &str, url: &Url) -> Result<SourceInput, String> {
         if url.scheme() != "https"
             || !url.username().is_empty()
             || url.password().is_some()
@@ -87,7 +87,7 @@ impl SourceProvider for KickProvider {
                 format!("https://kick.com/{channel}")
             }
         };
-        Ok(Input {
+        Ok(SourceInput {
             provider: self.id(),
             url: normalized,
         })
@@ -111,9 +111,15 @@ impl SourceProvider for KickProvider {
         cancel: Arc<AtomicBool>,
     ) -> Preparation<'a> {
         Box::pin(async move {
-            let (source, analysis) =
-                crate::media::analyze(url, start, end, profile, options.capture_seconds, cancel)
-                    .await?;
+            let (source, analysis) = crate::media_analysis::analyze_media_source(
+                url,
+                start,
+                end,
+                profile,
+                options.capture_seconds,
+                cancel,
+            )
+            .await?;
             Ok(PreparedSource::Video(source, analysis))
         })
     }
@@ -121,7 +127,7 @@ impl SourceProvider for KickProvider {
 
 #[cfg(test)]
 mod tests {
-    use crate::scope::parse_input;
+    use crate::source_providers::parse_source_input;
     #[test]
     fn kick_normalizes_supported_sources_and_discards_tracking() {
         for (input, expected) in [
@@ -138,7 +144,7 @@ mod tests {
                 "https://kick.com/mxddy/clips/clip_01GYXVB5Y8PWAPWCWMSBCFB05X",
             ),
         ] {
-            let result = parse_input(input).unwrap();
+            let result = parse_source_input(input).unwrap();
             assert_eq!(result.provider(), "kick");
             assert_eq!(result.url, expected);
         }
@@ -156,7 +162,7 @@ mod tests {
             "https://kick.com/xqc?clip=../../bad",
             "https://kick.com/xqc/other/path",
         ] {
-            assert!(parse_input(url).is_err(), "accepted {url}");
+            assert!(parse_source_input(url).is_err(), "accepted {url}");
         }
     }
 }

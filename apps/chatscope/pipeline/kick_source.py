@@ -1,5 +1,6 @@
 """Public Kick acquisition via the maintained yt-dlp extractor; no heatmap is assumed."""
-from .providers import YtDlpSource
+
+from .media_sources import YtDlpSource
 
 
 class KickSource(YtDlpSource):

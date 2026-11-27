@@ -4,6 +4,8 @@ Trabalhar todos os dias em que o PC e o ambiente local estiverem disponíveis, e
 
 ## Entrega e autorização
 
+- Escrever títulos propostos em inglês. As legendas usam inglês por defeito; o perfil admite EN/PT, com PT → EN implementado e EN → PT preparado para um provider futuro. Separar língua falada e língua de saída; ver [Caption languages](english-captions.md).
+
 - Analisar, selecionar e editar os clips, guardando os MP4 em `media/daily/YYYY-MM-DD/clips/TEMA/`.
 - Guardar `review.md` na pasta diária, com links para os ficheiros locais, título proposto, origem, duração e motivo de seleção.
 - O utilizador revê os ficheiros e pode fazer o upload manualmente ou pedir depois o upload de clips identificados.

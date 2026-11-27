@@ -50,7 +50,7 @@ As interfaces, formatos e requisitos de JavaScript podem mudar.
 
 Uma origem implementa `SourceProvider` em Rust e `MediaSource` em Python;
 devolve sinais normalizados e ficheiros locais. Um sinal novo implementa
-`MomentDetector`. `ClipProfile`, `Moment`, `VideoAnalysis` e `FFmpegRenderer`
+`MomentDetector`. `ClipProfile`, `ClipCandidate`, `VideoAnalysis` e `FFmpegRenderer`
 são comuns. Kick fica na branch separada `kick_scoper`.
 
 `study/` conserva o coletor Twitch avançado e edições históricas. O desktop

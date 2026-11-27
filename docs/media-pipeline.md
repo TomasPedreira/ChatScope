@@ -9,17 +9,17 @@ flowchart TB
   R --> P[SourceProvider / ProviderRegistry]
   P --> T[Twitch chat]
   P --> W[Worker Python isolado]
-  W --> A[MediaSource / SourceRegistry]
-  A --> Y[yt-dlp: YouTube / Twitch]
+  W --> A[MediaSource / MediaSourceRegistry]
+  A --> Y[yt-dlp: YouTube / Twitch / Kick]
   A --> L[Ficheiro local]
   Y --> S[Heatmap ou áudio normalizado]
   L --> S
   T --> D[MomentDetector]
   S --> D
   C[ClipProfile] --> D
-  D --> M[Moment: início / fim / pico / motivo]
+  D --> M[ClipCandidate: início / fim / pico / motivo]
   M --> U[Timeline / revisão / corte manual]
-  U --> J[Production: lote persistente e cancelável]
+  U --> J[ClipProductionManager: lote persistente e cancelável]
   J --> V[Aquisição de master local]
   V --> F[FFmpegRenderer]
   E[RenderProfile: formato / enquadramento / legendas] --> F
@@ -30,22 +30,23 @@ flowchart TB
 
 ## Responsabilidades
 
-- `providers.rs`: `SourceProvider` valida/escolhe a origem. O resultado vídeo
-  usa `scope::VideoAnalysis`, independente da plataforma.
-- `scope.rs`: contratos `Source`, `SignalPoint`, `Moment`, `VideoAnalysis`.
-- `detectors.rs`: `ChatActivityDetector`, `HeatmapDetector`, `AudioEnergyDetector`.
-- `clips.rs`: `ClipProfile`, duração 5–180 s, contexto e máximo de candidatos.
-- `media.rs`: lifecycle, protocolo JSON, cancelamento, persistência, recuperação,
-  exclusão entre instâncias e `RenderProfile`.
-- `pipeline/providers.py`: `MediaSource` é uma ABC; adquire ficheiros locais e
+- `source_providers.rs`: `SourceProvider` valida/escolhe a origem. O resultado vídeo
+  usa `domain_models::VideoAnalysis`, independente da plataforma.
+- `domain_models.rs`: contratos `MediaSource`, `SignalPoint`, `ClipCandidate`, `VideoAnalysis`.
+- `moment_detectors.rs`: `ChatActivityDetector`, `HeatmapDetector`, `AudioEnergyDetector`.
+- `clip_profiles.rs`: `ClipProfile`, duração 5–180 s, contexto e máximo de candidatos.
+- `media_worker_client.rs` e `clip_production.rs`: protocolo JSON e lifecycle;
+  `production_store.rs` mantém persistência e `clip_profiles.rs` os perfis.
+- `pipeline/media_sources.py`: `MediaSource` é uma ABC; adquire ficheiros locais e
   devolve o offset original. O renderer não conhece URLs/plataformas.
-- `pipeline/signals.py`: energia RMS do áudio por segundo, normalizada em dB.
-- `pipeline/render.py`: `Renderer` / `FFmpegRenderer`, 1080×1920, 1920×1080 ou
+- `pipeline/audio_signals.py`: energia RMS do áudio por segundo, normalizada em dB.
+- `pipeline/video_renderer.py`: `Renderer` / `FFmpegRenderer`, 1080×1920, 1920×1080 ou
   1080×1080, preservar imagem ou recorte central, áudio AAC normalizado.
-- `pipeline/captions.py`: `Transcriber` / `WhisperTranscriber` opcional, idioma
-  automático, SRT e transcrição; modelo carregado uma vez por lote.
-- `pipeline/worker.py`: aplica pedidos, guarda masters, manifests, hashes e
-  índice local. Não contém código de uploads.
+- `pipeline/speech_transcriber.py`: `Transcriber` / `WhisperTranscriber` opcional;
+  reconhecimento e tradução de fala para inglês. `caption_service.py` mantém
+  extração de áudio, SRT e proveniência; `caption_models.py` mantém os contratos.
+- `pipeline/worker.py` encaminha pedidos; `clip_production.py` mantém os lotes;
+  `job_storage.py` e `review_index.py` mantêm manifests e índice local.
 
 Rust mantém coordenação e regras editoriais. Python reutiliza yt-dlp/Whisper.
 FFmpeg é um processo especializado. A instalação existente `.venv-youtube`
@@ -78,6 +79,10 @@ história ou qualidade. Nunca se fabricam candidatos para preencher o máximo.
 Selecionar um momento preenche o corte, que pode ser ajustado. **Criar este MP4**
 usa esse intervalo; **Criar todos os sugeridos** usa os momentos calculados com
 o ClipProfile. `RenderProfile` define formato, enquadramento e legendas.
+As [legendas usam inglês por defeito](english-captions.md). `captionProfile` separa
+língua falada e saída EN/PT. PT → EN está implementado; EN → PT aguarda um provider.
+O [estilo clássico](caption-style.md) destaca a palavra ativa a amarelo. O texto
+e a apresentação são independentes; transcrições aprovadas podem ser reutilizadas.
 
 Só um lote escreve na pasta de produção de cada vez. Cada clip tem estado
 `queued`, `acquiring`, `rendering`, `ready` ou `error`. O lote pode terminar
@@ -150,3 +155,5 @@ faster-whisper; o modelo small é descarregado só quando se pedem legendas.
 
 Provas de rede dependem de disponibilidade e não garantem cobertura de todos
 os vídeos. Conteúdos indisponíveis ou bloqueados devolvem erros distintos.
+
+A [organização atual dos módulos](architecture.md) documenta os nomes, fronteiras e aliases de compatibilidade. A aquisição de sinais por legendas/transcrições está planeada na [issue #3](https://github.com/TomasPedreira/ChatScope/issues/3).

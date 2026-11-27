@@ -1,8 +1,8 @@
 //! Register an adapter here; UI, detectors and clip profiles use common contracts.
 use crate::{
-    chat,
-    clips::ClipProfile,
-    scope::{Input, Source},
+    clip_profiles::ClipProfile,
+    domain_models::{MediaSource, SourceInput},
+    twitch_chat,
 };
 use serde::Serialize;
 use std::{
@@ -13,8 +13,8 @@ use std::{
 use url::Url;
 
 pub enum PreparedSource {
-    Chat(Source),
-    Video(Source, crate::scope::VideoAnalysis),
+    Chat(MediaSource),
+    Video(MediaSource, crate::domain_models::VideoAnalysis),
 }
 pub(crate) type Preparation<'a> =
     Pin<Box<dyn Future<Output = Result<PreparedSource, String>> + Send + 'a>>;
@@ -38,7 +38,7 @@ pub struct CaptureOptions {
 pub trait SourceProvider: Send + Sync {
     fn id(&self) -> &'static str;
     fn accepts(&self, host: &str) -> bool;
-    fn normalize(&self, input: &str, url: &Url) -> Result<Input, String>;
+    fn normalize(&self, input: &str, url: &Url) -> Result<SourceInput, String>;
     fn capabilities(&self) -> Capabilities;
     fn prepare<'a>(
         &'a self,
@@ -62,9 +62,9 @@ impl SourceProvider for TwitchProvider {
             "twitch.tv" | "www.twitch.tv" | "m.twitch.tv" | "clips.twitch.tv"
         )
     }
-    fn normalize(&self, input: &str, _url: &Url) -> Result<Input, String> {
-        chat::parse_source(input)?;
-        Ok(Input {
+    fn normalize(&self, input: &str, _url: &Url) -> Result<SourceInput, String> {
+        twitch_chat::parse_source(input)?;
+        Ok(SourceInput {
             provider: self.id(),
             url: input.trim().to_owned(),
         })
@@ -89,7 +89,7 @@ impl SourceProvider for TwitchProvider {
     ) -> Preparation<'a> {
         Box::pin(async move {
             if options.video_mode {
-                let (source, analysis) = crate::media::analyze(
+                let (source, analysis) = crate::media_analysis::analyze_media_source(
                     url,
                     start,
                     end,
@@ -100,7 +100,9 @@ impl SourceProvider for TwitchProvider {
                 .await?;
                 Ok(PreparedSource::Video(source, analysis))
             } else {
-                Ok(PreparedSource::Chat(chat::resolve(url, start, end).await?))
+                Ok(PreparedSource::Chat(
+                    twitch_chat::resolve(url, start, end).await?,
+                ))
             }
         })
     }
@@ -117,7 +119,7 @@ impl SourceProvider for YouTubeProvider {
             "youtube.com" | "www.youtube.com" | "m.youtube.com" | "youtu.be" | "www.youtu.be"
         )
     }
-    fn normalize(&self, _input: &str, url: &Url) -> Result<Input, String> {
+    fn normalize(&self, _input: &str, url: &Url) -> Result<SourceInput, String> {
         if url.scheme() != "https"
             || !url.username().is_empty()
             || url.password().is_some()
@@ -149,7 +151,7 @@ impl SourceProvider for YouTubeProvider {
                         .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
             })
             .ok_or("Usa o URL de um vídeo YouTube; canais e playlists não são suportados.")?;
-        Ok(Input {
+        Ok(SourceInput {
             provider: self.id(),
             url: format!("https://www.youtube.com/watch?v={id}"),
         })
@@ -173,9 +175,15 @@ impl SourceProvider for YouTubeProvider {
         cancel: Arc<AtomicBool>,
     ) -> Preparation<'a> {
         Box::pin(async move {
-            let (source, analysis) =
-                crate::media::analyze(url, start, end, profile, options.capture_seconds, cancel)
-                    .await?;
+            let (source, analysis) = crate::media_analysis::analyze_media_source(
+                url,
+                start,
+                end,
+                profile,
+                options.capture_seconds,
+                cancel,
+            )
+            .await?;
             Ok(PreparedSource::Video(source, analysis))
         })
     }
@@ -189,11 +197,11 @@ impl SourceProvider for LocalProvider {
     fn accepts(&self, host: &str) -> bool {
         host.is_empty() || host == "localhost"
     }
-    fn normalize(&self, _input: &str, url: &Url) -> Result<Input, String> {
+    fn normalize(&self, _input: &str, url: &Url) -> Result<SourceInput, String> {
         if url.scheme() != "file" || url.to_file_path().ok().is_none_or(|p| !p.is_file()) {
             return Err("Escolhe um ficheiro de vídeo local existente.".into());
         }
-        Ok(Input {
+        Ok(SourceInput {
             provider: self.id(),
             url: url.to_string(),
         })
@@ -217,9 +225,15 @@ impl SourceProvider for LocalProvider {
         cancel: Arc<AtomicBool>,
     ) -> Preparation<'a> {
         Box::pin(async move {
-            let (source, analysis) =
-                crate::media::analyze(url, start, end, profile, options.capture_seconds, cancel)
-                    .await?;
+            let (source, analysis) = crate::media_analysis::analyze_media_source(
+                url,
+                start,
+                end,
+                profile,
+                options.capture_seconds,
+                cancel,
+            )
+            .await?;
             Ok(PreparedSource::Video(source, analysis))
         })
     }
@@ -230,7 +244,7 @@ pub struct ProviderRegistry {
 }
 
 #[cfg(test)]
-mod tests {
+mod registry_tests {
     use super::*;
     #[test]
     fn registry_reports_only_implemented_acquisition_modes() {
@@ -266,13 +280,13 @@ impl Default for ProviderRegistry {
                 Box::new(TwitchProvider),
                 Box::new(YouTubeProvider),
                 Box::new(LocalProvider),
-                Box::new(crate::kick::KickProvider),
+                Box::new(crate::kick_provider::KickProvider),
             ],
         }
     }
 }
 impl ProviderRegistry {
-    pub fn resolve(&self, input: &str) -> Result<Input, String> {
+    pub fn resolve(&self, input: &str) -> Result<SourceInput, String> {
         let url = Url::parse(input.trim())
             .map_err(|_| "Introduz um URL HTTPS da Twitch ou do YouTube.")?;
         let host = url.host_str().unwrap_or("");
@@ -288,7 +302,7 @@ impl ProviderRegistry {
     }
     pub async fn prepare(
         &self,
-        input: &Input,
+        input: &SourceInput,
         start: Option<f64>,
         end: Option<f64>,
         profile: &ClipProfile,
@@ -304,5 +318,46 @@ impl ProviderRegistry {
         provider
             .prepare(url, start, end, profile, options, cancel)
             .await
+    }
+}
+
+pub fn parse_source_input(input: &str) -> Result<SourceInput, String> {
+    crate::source_providers::ProviderRegistry::default().resolve(input)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn normalizes_video_urls_and_discards_playlist_parameters() {
+        for url in [
+            "https://youtu.be/YE7VzlLtp-4?t=20",
+            "https://www.youtube.com/watch?v=YE7VzlLtp-4&list=whatever",
+            "https://m.youtube.com/shorts/YE7VzlLtp-4",
+            "https://youtube.com/live/YE7VzlLtp-4",
+        ] {
+            assert!(
+                parse_source_input(url).is_ok_and(|request| request.provider() == "youtube"
+                    && request.url == "https://www.youtube.com/watch?v=YE7VzlLtp-4")
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_other_hosts_credentials_ports_and_non_video_urls() {
+        for url in [
+            "https://youtube.com.evil.org/watch?v=YE7VzlLtp-4",
+            "http://youtube.com/watch?v=YE7VzlLtp-4",
+            "https://user@youtube.com/watch?v=YE7VzlLtp-4",
+            "https://youtube.com:8000/watch?v=YE7VzlLtp-4",
+            "https://youtube.com/playlist?list=foo",
+            "https://youtube.com/@Blender",
+            "https://youtu.be/../../anything",
+            "https://youtube.com/watch?v=bad",
+            "https://twitch.tv.evil.org/foo",
+        ] {
+            assert!(parse_source_input(url).is_err(), "accepted {url}");
+        }
     }
 }
