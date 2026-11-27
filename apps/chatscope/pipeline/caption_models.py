@@ -11,6 +11,7 @@ class CaptionProfile:
     source_language: str = "auto"
     target_language: str = "en"
     model: str = "small"
+    style: str = "word_highlight"
 
     @classmethod
     def from_dict(cls, value):
@@ -18,12 +19,14 @@ class CaptionProfile:
             "sourceLanguage",
             "targetLanguage",
             "model",
+            "style",
         }:
             raise ValueError("Perfil de legendas inválido.")
         profile = cls(
             value.get("sourceLanguage", "auto"),
             value.get("targetLanguage", "en"),
             value.get("model", "small"),
+            value.get("style", "word_highlight"),
         )
         if not isinstance(profile.source_language, str) or not re.fullmatch(
             r"auto|[a-z]{2,3}", profile.source_language
@@ -38,6 +41,8 @@ class CaptionProfile:
             raise ValueError(
                 "Escolhe um modelo Whisper multilingue com tradução: tiny, base, small, medium ou large-v3."
             )
+        if profile.style not in ("word_highlight", "plain"):
+            raise ValueError("Escolhe o estilo palavra amarela ou simples.")
         return profile
 
 

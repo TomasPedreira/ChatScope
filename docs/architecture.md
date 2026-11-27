@@ -53,6 +53,10 @@ apps/chatscope/pipeline/
   speech_transcriber.py      Transcriber e WhisperTranscriber para legendas de saída
   caption_models.py          CaptionProfile, SubtitleCue e TimedTranscript
   caption_service.py         áudio limitado, legendas inglesas, SRT e proveniência
+  caption_style.py           estilo ASS partilhado com o study/ antigo
+  caption_styling.py         apresentação independente da transcrição
+  word_alignment.py         tempos das palavras a partir de texto fixo e áudio
+  saved_caption_service.py   reutilização de transcrições aprovadas sem as alterar
   transcript_translation.py  contrato para futuras direções, incluindo EN → PT
   clip_production.py         execução dos intervalos escolhidos e verificação do MP4
   request_validation.py      validação de perfis e dados do heatmap

@@ -216,7 +216,9 @@ class CaptionContracts(unittest.TestCase):
         ):
             result = CaptionService(
                 EnglishProvider(), translators=(FixtureTranslator(),)
-            ).generate("source.mp4", 0, 5, folder, {"targetLanguage": "pt"})
+            ).generate(
+                "source.mp4", 0, 5, folder, {"targetLanguage": "pt", "style": "plain"}
+            )
             self.assertEqual(result["language"], "pt")
             self.assertEqual(result["provider"], "fixture-translator")
 

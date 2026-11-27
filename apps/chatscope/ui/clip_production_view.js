@@ -101,6 +101,7 @@ export function createClipProductionView(getSessionSnapshot) {
               sourceLanguage: $("caption-source-language").value,
               targetLanguage: $("caption-target-language").value,
               model: "small",
+              style: $("caption-style").value,
             },
           },
           topic: $("render-topic").value,
@@ -119,6 +120,7 @@ export function createClipProductionView(getSessionSnapshot) {
   function updateCaptionLanguageControls() {
     $("caption-source-language").disabled = !$("render-captions").checked;
     $("caption-target-language").disabled = !$("render-captions").checked;
+    $("caption-style").disabled = !$("render-captions").checked;
     const portugueseOption = $("caption-target-language").querySelector(
       'option[value="pt"]',
     );

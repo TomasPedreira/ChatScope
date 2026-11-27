@@ -81,6 +81,8 @@ usa esse intervalo; **Criar todos os sugeridos** usa os momentos calculados com
 o ClipProfile. `RenderProfile` define formato, enquadramento e legendas.
 As [legendas usam inglês por defeito](english-captions.md). `captionProfile` separa
 língua falada e saída EN/PT. PT → EN está implementado; EN → PT aguarda um provider.
+O [estilo clássico](caption-style.md) destaca a palavra ativa a amarelo. O texto
+e a apresentação são independentes; transcrições aprovadas podem ser reutilizadas.
 
 Só um lote escreve na pasta de produção de cada vez. Cada clip tem estado
 `queued`, `acquiring`, `rendering`, `ready` ou `error`. O lote pode terminar

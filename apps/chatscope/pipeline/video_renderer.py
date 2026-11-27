@@ -70,6 +70,7 @@ class FFmpegRenderer(Renderer):
                     clip_end_seconds,
                     output_path.parent,
                     render_profile.get("captionProfile", {}),
+                    canvas_size=(width, height),
                 )
             else:
                 caption_metadata = {
@@ -80,7 +81,11 @@ class FFmpegRenderer(Renderer):
                     "cueCount": 0,
                 }
             if caption_metadata["status"] == "ready":
-                filters += ",subtitles=captions.srt"
+                filters += (
+                    ",ass=captions.ass"
+                    if caption_metadata["style"] == "word_highlight"
+                    else ",subtitles=captions.srt"
+                )
         audio = (
             ["-af", "loudnorm=I=-16:TP=-2:LRA=7"] if source_metadata["audio"] else []
         )

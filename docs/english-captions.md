@@ -70,6 +70,10 @@ and [faster-whisper options](https://github.com/SYSTRAN/faster-whisper/blob/mast
 
 ## Timing, provenance and limits
 
+The [classic yellow-word style](caption-style.md) is the default presentation.
+It aligns the fixed transcript without regenerating its wording. Select
+`captionProfile.style: "plain"` to keep the simple SRT appearance instead.
+
 SRT timestamps are relative to the clip. JSON stores the detected source language
 separately from the output language, provider/model/task, input media file and
 input-file interval. The production manifest retains the source URL and absolute

@@ -212,6 +212,17 @@ pub struct CaptionProfile {
     pub source_language: String,
     pub target_language: String,
     pub model: String,
+    #[serde(
+        default = "default_caption_style",
+        skip_serializing_if = "is_default_caption_style"
+    )]
+    pub style: String,
+}
+fn default_caption_style() -> String {
+    "word_highlight".into()
+}
+fn is_default_caption_style(style: &str) -> bool {
+    style == "word_highlight"
 }
 impl Default for CaptionProfile {
     fn default() -> Self {
@@ -219,6 +230,7 @@ impl Default for CaptionProfile {
             source_language: "auto".into(),
             target_language: "en".into(),
             model: "small".into(),
+            style: default_caption_style(),
         }
     }
 }
@@ -227,6 +239,9 @@ impl CaptionProfile {
         self == &Self::default()
     }
     pub fn validate(&self) -> Result<(), String> {
+        if !["word_highlight", "plain"].contains(&self.style.as_str()) {
+            return Err("Escolhe o estilo palavra amarela ou simples.".into());
+        }
         if self.source_language != "auto"
             && (!(2..=3).contains(&self.source_language.len())
                 || !self.source_language.bytes().all(|b| b.is_ascii_lowercase()))

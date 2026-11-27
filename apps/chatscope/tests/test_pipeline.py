@@ -11,6 +11,9 @@ from types import SimpleNamespace
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from pipeline.media_sources import MediaSourceRegistry
 from pipeline.video_renderer import FFmpegRenderer
+from pipeline.caption_service import CaptionService
+from pipeline.caption_styling import CaptionStyler
+from pipeline.word_alignment import TimedWord
 from pipeline.request_validation import validate_render_profile
 from pipeline.audio_signals import extract_audio_energy_signal
 from pipeline.request_validation import validate_clip_profile
@@ -145,7 +148,11 @@ class LocalProduction(unittest.TestCase):
         silent = self.folder / "silent.mp4"
         synthetic(silent, audio=False)
         info = FFmpegRenderer().render(
-            silent, self.folder / "silent-draft.mp4", 0, 5, {"aspect": "9:16", "captions": True}
+            silent,
+            self.folder / "silent-draft.mp4",
+            0,
+            5,
+            {"aspect": "9:16", "captions": True},
         )
         self.assertFalse(info["audio"])
         self.assertEqual(info["captions"]["status"], "no_audio")
@@ -211,10 +218,18 @@ class LocalProduction(unittest.TestCase):
                     [SimpleNamespace(start=-0.1, end=8, text="This is a caption test.")]
                 ), SimpleNamespace(language="pt")
 
+        class FixedWordAligner:
+            def align(self, audio, cues, source_language, task, model_name):
+                return [
+                    TimedWord(word, index, index + 1)
+                    for index, word in enumerate("This is a caption test.".split())
+                ]
+
         with patch(
             "pipeline.speech_transcriber.load_whisper_model", return_value=Speech()
         ):
-            info = FFmpegRenderer().render(
+            service = CaptionService(caption_styler=CaptionStyler(FixedWordAligner()))
+            info = FFmpegRenderer(caption_service=service).render(
                 self.source,
                 folder / "captioned.mp4",
                 2,
@@ -237,6 +252,10 @@ class LocalProduction(unittest.TestCase):
         self.assertEqual(transcript["sourceLanguage"], "pt")
         self.assertEqual(info["captions"]["language"], "en")
         self.assertEqual(info["captions"]["task"], "translate")
+        self.assertEqual(info["captions"]["style"], "word_highlight")
+        self.assertIn(
+            r"{\1c&H48D5FF&}", (folder / "captions.ass").read_text(encoding="utf-8")
+        )
 
 
 if __name__ == "__main__":

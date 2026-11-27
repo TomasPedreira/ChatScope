@@ -8,6 +8,7 @@ from .caption_models import CaptionProfile, SubtitleCue
 from .job_storage import write_json_atomically, write_text_atomically
 from .media_tools import resolve_ffmpeg_executable, run_media_command
 from .speech_transcriber import WhisperTranscriber
+from .caption_styling import CaptionStyler
 
 
 def format_subtitle_timestamp(seconds):
@@ -55,11 +56,20 @@ def normalize_cues(segments, duration_seconds):
 
 
 class CaptionService:
-    def __init__(self, transcriber=None, translators=()):
+    def __init__(self, transcriber=None, translators=(), caption_styler=None):
         self.transcriber = transcriber or WhisperTranscriber()
         self.translators = tuple(translators)
+        self.caption_styler = caption_styler or CaptionStyler()
 
-    def generate(self, source_path, start_seconds, end_seconds, folder, profile=None):
+    def generate(
+        self,
+        source_path,
+        start_seconds,
+        end_seconds,
+        folder,
+        profile=None,
+        canvas_size=(1080, 1920),
+    ):
         profile = CaptionProfile.from_dict({} if profile is None else profile)
         folder = Path(folder)
         folder.mkdir(parents=True, exist_ok=True)
@@ -130,7 +140,21 @@ class CaptionService:
             ],
         }
         write_json_atomically(transcript_path, provenance)
+        style_metadata = (
+            self.caption_styler.write(
+                speech_path,
+                cues,
+                provenance,
+                folder,
+                profile,
+                end_seconds - start_seconds,
+                canvas_size,
+            )
+            if cues
+            else {"style": profile.style}
+        )
         return {
+            **style_metadata,
             "status": "ready" if cues else "no_speech",
             "language": transcript.language,
             "sourceLanguage": transcript.source_language,
